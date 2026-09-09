@@ -1,0 +1,111 @@
+# Prepwise
+
+Your one-stop AI prep for technical interview rounds.
+
+Built for the IIT Patna Generative AI for Professionals Capstone Sprint (4-week solo/team project).
+
+## Problem
+
+Candidates prepping for tech interviews rarely know exactly what to focus on. A job description might signal a DSA-heavy round, a system-design-heavy round, or both, but generic prep resources (LeetCode lists, YouTube playlists, static question banks) do not adapt to the specific role. Almost none of them let a candidate practice explaining an answer out loud, which is a core part of how real technical interviews are actually run and judged.
+
+## Solution
+
+Prepwise takes a pasted or uploaded job description and uses AI to:
+
+1. Detect the right prep track: Technical/DSA, System Design, or Mixed, plus the key skills to focus on.
+2. Generate a 20 to 30 question adaptive set mixing multiple-choice questions with a handful of open-ended questions answered by voice.
+3. Grade spoken answers with AI and explain mistakes on wrong multiple-choice answers.
+4. Structure the whole session as an interactive "boss battle" against The Interviewer (HP bars for user vs. boss, correct answers deal damage, wrong answers take damage, strong spoken answers land a critical hit) to keep it engaging.
+5. Close with an AI-generated debrief: overall readiness, category-by-category performance breakdown, strengths, focus areas, and one concrete tip for the next session.
+
+Currently scoped to technical interview rounds only (DSA and system design). Behavioral rounds and other domains (product, data) are a natural future expansion.
+
+## Features to Build
+
+- [x] JD input (paste text or upload a .txt file), with AI-driven round-type detection and topic extraction; user can override the suggested round type
+- [x] Batched adaptive question generation (20 or 30 total questions), scaling from fundamentals to harder edge cases across batches
+- [x] Two question types: multiple-choice (instant client-side scoring) and speech-answered (via browser voice input, with a manual typed fallback for unsupported browsers)
+- [x] AI grading of spoken answers (0 to 100 score plus written feedback)
+- [x] Boss-battle style UI: HP bars, category tags per question, live progress
+- [x] AI-generated debrief screen with category breakdown and strengths/focus areas/tip
+- [ ] Swap AI provider from Claude API (only free inside Claude.ai artifacts) to Google AI Studio's Gemini API using a real free-tier API key, so the app works once deployed outside Claude.ai
+- [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
+- [ ] Supabase integration: persist session history, quiz results, and progress over time so users can track readiness across multiple sessions
+- [ ] Rebuild/port the working HTML/JS prototype into Lovable (or Bubble/Replit as fallback) for a more polished, deployable app
+- [ ] Optional: expand beyond technical/system-design rounds to behavioral prep
+
+## Existing Prototype
+
+A working single-file HTML/JS prototype already exists (built as a Claude.ai artifact) implementing the full flow above:
+
+- JD paste/upload screen, then an AI-analysis screen showing detected round type + topics with override buttons and question-count/speech toggles
+- Batched quiz generation: calls the LLM in batches of 5 questions at a time (to fit small max-token responses), building up to the full 20 or 30 question set with a live progress bar
+- Battle screen: HP bars for "YOU" vs "THE INTERVIEWER," MCQ options or a mic-based speech input box depending on question type, instant feedback panel, "Next question" flow
+- Speech input uses the browser's native `SpeechRecognition` / `webkitSpeechRecognition` API, with a textarea fallback for typing when unsupported or when the transcript needs editing
+- Debrief screen: category breakdown bars plus an AI-written readiness summary, strengths, focus areas, and a tip
+
+**Known limitation to fix first:** the prototype calls `https://api.anthropic.com/v1/messages` with no API key, which only works inside Claude.ai's artifact sandbox (the platform proxies it for free). This will NOT work once deployed elsewhere. The first real task in this repo should be swapping this out for Google AI Studio's Gemini API using a real (free-tier) API key, since Gemini's Flash models have a genuinely free tier and Google AI Studio is an approved tool for this capstone.
+
+Prompt patterns already designed and working, to preserve when porting to Gemini:
+
+- **JD analysis prompt**: returns strict JSON `{round_type, reasoning, topics}` given the JD text
+- **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
+- **Speech grading prompt**: given the question, the ideal answer/key points (from `explanation`), and the candidate's transcript, returns strict JSON `{score, feedback}`
+- **Debrief prompt**: given a compact summary string of per-question category/type/correct-or-score, returns strict JSON `{overall_readiness, strengths, focus_areas, tip}`
+
+All prompts request "ONLY a raw JSON object/array, no markdown fences, no commentary" and the client strips any stray code fences before `JSON.parse`.
+
+## Tech Stack
+
+| Category | Tool | Purpose |
+| --- | --- | --- |
+| LLM / AI | Google AI Studio, Gemini API | JD analysis, adaptive question generation, grading of spoken answers |
+| Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
+| Frontend | Lovable (fallback: Bubble or Replit) | Turning the working HTML/JS prototype into a polished, deployable app |
+| Backend / Data | Supabase | Storing session history, quiz results, and progress over time |
+| Testing | Postman | Validating AI API calls (JD analysis, question generation, grading) before wiring into the UI |
+
+## 4-Week Sprint Timeline
+
+| Week | Theme | Objective | Deliverable | Date |
+| --- | --- | --- | --- | --- |
+| Week 1 | Ideation and Planning | Finalize project idea and submit 1-pager | 1-Page Idea Doc + Public Post #1 | Sept 5 |
+| Week 2 | Core Build | Develop AI logic and data flow | Working prototype + Post #2 | Sept 12 |
+| Week 3 | Integration and UI | Build frontend and connect to database | Functional web app + Post #3 | Sept 19 |
+| Week 4 | Testing and Showcase | Finalize, polish, record demo | Demo Video + Documentation + Post #4 | Sept 26 |
+
+## Deliverables Checklist
+
+- [ ] Working web app (hosted on Lovable/Replit/Bubble or similar)
+- [x] 1-Pager Idea Document (Problem, Solution, Features, Stack, Outcome)
+- [ ] Demo video (3 to 5 minutes, screen recording with voiceover)
+- [ ] Documentation / Notion page explaining system flow and learnings
+- [ ] 4 build-in-public posts tagged #IITPatnaCapstone (one per week)
+
+## Assets Already Created
+
+- `prepwise-1pager.docx` / `prepwise-1pager.pdf`: the Week 1 1-Pager Idea Doc
+- `prepwise-infographic.png`: a 1080x1350 infographic summarizing the problem, how it works (5 steps), tech stack, for use in build-in-public posts
+- Draft caption for Post #1 (no em dashes, tech stack section uses emoji):
+
+  ```
+  Kicking off my Capstone Sprint at IIT Patna with Prepwise, a one-stop AI prep tool for technical interview rounds.
+
+  Paste in a job description, and it figures out if you need to prep for DSA, system design, or both. Then it builds a custom question set, mixes in questions you answer out loud, and scores you in a boss battle format against "The Interviewer." You get a full debrief at the end: strengths, weak spots, and one thing to work on next.
+
+  🧠 Tech stack to be used:
+  🤖 Google AI Studio (Gemini) for the AI brain
+  🎙️ Web Speech API for voice answers
+  🎨 Lovable for the frontend
+  🗄️ Supabase for storing sessions
+
+  Week 1 done, prototype coming next 🚀
+
+  #IITPatnaCapstone
+  ```
+
+## Style Notes
+
+- No em dashes anywhere in copy (docs, posts, UI text). Use commas, colons, or parentheses instead.
+- Do not refer to Prepwise as "a game." It is a one-stop AI prep tool for interview tech rounds; the boss-battle scoring is an interaction style within that tool, not its identity.
+- Project name is "Prepwise" everywhere (not "Interview Arena," an earlier working name).
