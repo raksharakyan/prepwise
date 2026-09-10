@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prepwise</title>
+<style>
+  :root {
+    --bg: #0b0d17;
+    --panel: #141829;
+    --panel-2: #1c2138;
+    --line: #2a3050;
+    --text: #e8eaf6;
+    --muted: #8f97bd;
+    --accent: #7c5cff;
+    --accent-2: #00d4b8;
+    --danger: #ff4d6d;
+    --warn: #ffb020;
+    --ok: #35d07f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.4px; }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  .tag {
+    display: inline-block; font-size: 11px; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--accent-2); margin-bottom: 18px;
+  }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 22px; margin-bottom: 18px;
+  }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  textarea, input[type=text], input[type=password] {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+    font: inherit; resize: vertical;
+  }
+  textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+    padding: 12px 20px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.12); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  button.ghost.on { border-color: var(--accent); background: rgba(124,92,255,.16); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .err { color: var(--danger); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+
+  /* battle */
+  .hp-row { display: flex; gap: 16px; margin-bottom: 20px; }
+  .hp-box { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .hp-name { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .hp-bar { height: 12px; background: var(--panel-2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .hp-fill { height: 100%; border-radius: 99px; transition: width .45s ease; }
+  .hp-you .hp-fill { background: linear-gradient(90deg, var(--accent-2), var(--ok)); }
+  .hp-boss .hp-fill { background: linear-gradient(90deg, var(--warn), var(--danger)); }
+  .hp-num { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .qmeta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; }
+  .qtext { font-size: 18px; font-weight: 600; margin-bottom: 18px; }
+  .opt {
+    display: block; width: 100%; text-align: left; background: var(--panel-2);
+    border: 1px solid var(--line); color: var(--text); border-radius: 10px;
+    padding: 13px 16px; margin-bottom: 9px; cursor: pointer; font: inherit;
+  }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt.right { border-color: var(--ok); background: rgba(53,208,127,.14); }
+  .opt.wrong { border-color: var(--danger); background: rgba(255,77,109,.14); }
+  .fb { border-left: 3px solid var(--accent); padding: 12px 16px; background: var(--panel-2); border-radius: 0 10px 10px 0; margin-top: 16px; }
+  .fb h3 { margin: 0 0 6px; font-size: 15px; }
+
+  .bar-track { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
+
+  .cat-row { display: grid; grid-template-columns: 1fr 90px 46px; gap: 10px; align-items: center; margin-bottom: 10px; font-size: 14px; }
+  ul { margin: 8px 0 0; padding-left: 20px; }
+  li { margin-bottom: 5px; }
+  .mic-on { background: var(--danger); }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+  .shake { animation: shake .32s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ SETUP ============ -->
+  <section id="s-setup">
+    <div class="tag">Prepwise</div>
+    <h1>Your one-stop AI prep for technical rounds</h1>
+    <p class="sub">Paste a job description. Prepwise works out what to study, builds a question set around it, and puts you up against The Interviewer.</p>
+
+    <div class="card">
+      <label for="key">Gemini API key</label>
+      <input id="key" type="password" placeholder="Paste your Google AI Studio key" autocomplete="off">
+      <p class="muted" style="margin:8px 0 0">Stored in this browser only, never sent anywhere except Google. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent-2)">aistudio.google.com/apikey</a>.</p>
+    </div>
+
+    <div class="card">
+      <label for="jd">Job description</label>
+      <textarea id="jd" rows="11" placeholder="Paste the full job description here"></textarea>
+      <div class="row" style="margin-top:12px">
+        <input type="file" id="file" accept=".txt" class="hidden">
+        <button class="ghost" onclick="document.getElementById('file').click()">Upload a .txt file</button>
+        <button id="btn-analyze">Analyze this role</button>
+      </div>
+      <div id="err-setup" class="err"></div>
+    </div>
+  </section>
+
+  <!-- ============ ANALYSIS ============ -->
+  <section id="s-analysis" class="hidden">
+    <div class="tag">Step 2 of 3</div>
+    <h1>Here is what this role needs</h1>
+    <div class="card">
+      <h2 id="a-round"></h2>
+      <p class="muted" id="a-reason" style="margin-top:0"></p>
+      <label style="margin-top:18px">Focus topics</label>
+      <div class="row" id="a-topics"></div>
+
+      <label style="margin-top:22px">Round type (override if you disagree)</label>
+      <div class="row" id="a-override"></div>
+
+      <label style="margin-top:22px">How many questions</label>
+      <div class="row" id="a-count"></div>
+
+      <label style="margin-top:22px">Spoken answers</label>
+      <div class="row" id="a-speech"></div>
+      <p class="muted" id="speech-note" style="margin:8px 0 0"></p>
+
+      <div class="row" style="margin-top:24px">
+        <button id="btn-generate">Build my question set</button>
+        <button class="ghost" id="btn-back">Back</button>
+      </div>
+      <div id="err-analysis" class="err"></div>
+    </div>
+  </section>
+
+  <!-- ============ GENERATING ============ -->
+  <section id="s-gen" class="hidden">
+    <div class="tag">Step 3 of 3</div>
+    <h1>Building your question set</h1>
+    <p class="sub" id="gen-status">Warming up</p>
+    <div class="card">
+      <div class="bar-track"><div class="bar-fill" id="gen-bar" style="width:0%"></div></div>
+      <p class="muted" id="gen-count" style="margin:12px 0 0">0 questions ready</p>
+      <div id="err-gen" class="err"></div>
+    </div>
+  </section>
+
+  <!-- ============ BATTLE ============ -->
+  <section id="s-battle" class="hidden">
+    <div class="hp-row">
+      <div class="hp-box hp-you">
+        <div class="hp-name">You</div>
+        <div class="hp-bar"><div class="hp-fill" id="hp-you-fill" style="width:100%"></div></div>
+        <div class="hp-num" id="hp-you-num">100 / 100</div>
+      </div>
+      <div class="hp-box hp-boss" id="boss-box">
+        <div class="hp-name">The Interviewer</div>
+        <div class="hp-bar"><div class="hp-fill" id="hp-boss-fill" style="width:100%"></div></div>
+        <div class="hp-num" id="hp-boss-num">100 / 100</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="qmeta">
+        <span id="q-progress"></span>
+        <span class="pill" id="q-cat"></span>
+      </div>
+      <div class="qtext" id="q-text"></div>
+
+      <div id="q-mcq"></div>
+
+      <div id="q-speech" class="hidden">
+        <div class="row" style="margin-bottom:10px">
+          <button id="btn-mic">Start speaking</button>
+          <span class="muted" id="mic-status"></span>
+        </div>
+        <textarea id="transcript" rows="5" placeholder="Your answer appears here as you speak. You can also type it or edit it before submitting."></textarea>
+        <div class="row" style="margin-top:10px">
+          <button id="btn-submit-speech">Submit answer</button>
+        </div>
+      </div>
+
+      <div id="q-feedback" class="hidden"></div>
+      <div id="err-battle" class="err"></div>
+    </div>
+  </section>
+
+  <!-- ============ DEBRIEF ============ -->
+  <section id="s-debrief" class="hidden">
+    <div class="tag">Debrief</div>
+    <h1 id="d-title">Session complete</h1>
+    <p class="sub" id="d-line"></p>
+
+    <div class="card">
+      <h2>Category breakdown</h2>
+      <div id="d-cats"></div>
+    </div>
+
+    <div class="card" id="d-ai">
+      <h2>Where you stand</h2>
+      <p id="d-readiness" class="muted"></p>
+      <div id="d-lists"></div>
+    </div>
+
+    <button id="btn-restart">Start another session</button>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ---------------- state ---------------- */
+const S = {
+  key: "",
+  jd: "",
+  analysis: null,
+  roundType: "",
+  count: 20,
+  speech: true,
+  questions: [],
+  idx: 0,
+  youHp: 100,
+  bossHp: 100,
+  results: [],
+  answered: false,
+  recognizer: null,
+  listening: false
+};
+
+const MODEL = "gemini-2.5-flash";
+const ROUNDS = ["Technical/DSA", "System Design", "Mixed"];
+
+const $ = id => document.getElementById(id);
+const show = id => {
+  ["s-setup","s-analysis","s-gen","s-battle","s-debrief"].forEach(s => $(s).classList.add("hidden"));
+  $(id).classList.remove("hidden");
+  window.scrollTo(0, 0);
+};
+const setErr = (id, msg) => { $(id).textContent = msg || ""; };
+
+/* ---------------- gemini ---------------- */
+async function gemini(prompt, maxTokens) {
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL +
+              ":generateContent?key=" + encodeURIComponent(S.key);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: maxTokens || 2048,
+        responseMimeType: "application/json"
+      }
+    })
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json()).error.message; } catch (e) { detail = await res.text(); }
+    if (res.status === 400 && /API key/i.test(detail)) throw new Error("That API key was rejected. Check it at aistudio.google.com/apikey.");
+    if (res.status === 429) throw new Error("Gemini rate limit hit. Wait about a minute and try again.");
+    throw new Error("Gemini returned " + res.status + ": " + detail);
+  }
+
+  const data = await res.json();
+  const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+  const raw = parts ? parts.map(p => p.text || "").join("") : "";
+  if (!raw.trim()) throw new Error("Gemini returned an empty response. Try again.");
+
+  const cleaned = raw.replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    const m = cleaned.match(/[\[{][\s\S]*[\]}]/);
+    if (m) { try { return JSON.parse(m[0]); } catch (e2) {} }
+    throw new Error("Could not read Gemini's reply as JSON. Try again.");
+  }
+}
+
+/* ---------------- setup screen ---------------- */
+S.key = localStorage.getItem("prepwise_key") || "";
+$("key").value = S.key;
+$("key").addEventListener("input", e => {
+  S.key = e.target.value.trim();
+  localStorage.setItem("prepwise_key", S.key);
+});
+
+$("file").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => { $("jd").value = ev.target.result; };
+  r.readAsText(f);
+});
+
+$("btn-analyze").addEventListener("click", async () => {
+  setErr("err-setup", "");
+  S.key = $("key").value.trim();
+  S.jd = $("jd").value.trim();
+  if (!S.key) return setErr("err-setup", "Add your Gemini API key first.");
+  if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
+
+  const btn = $("btn-analyze");
+  btn.disabled = true;
+  btn.textContent = "Analyzing";
+  try {
+    S.analysis = await gemini(
+      'You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\n\n' +
+      'Return ONLY a raw JSON object, no markdown fences, no commentary, with exactly these keys:\n' +
+      '{"round_type": one of "Technical/DSA" or "System Design" or "Mixed", "reasoning": one or two sentences explaining the call, "topics": an array of 4 to 7 specific technical topics to focus on}\n\n' +
+      'JOB DESCRIPTION:\n' + S.jd,
+      1024
+    );
+    if (!ROUNDS.includes(S.analysis.round_type)) S.analysis.round_type = "Mixed";
+    if (!Array.isArray(S.analysis.topics)) S.analysis.topics = [];
+    S.roundType = S.analysis.round_type;
+    renderAnalysis();
+    show("s-analysis");
+  } catch (e) {
+    setErr("err-setup", e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Analyze this role";
+  }
+});
+
+/* ---------------- analysis screen ---------------- */
+function renderAnalysis() {
+  $("a-round").textContent = S.analysis.round_type + " round";
+  $("a-reason").textContent = S.analysis.reasoning || "";
+
+  $("a-topics").innerHTML = S.analysis.topics
+    .map(t => '<span class="pill">' + esc(t) + '</span>').join("");
+
+  $("a-override").innerHTML = ROUNDS
+    .map(r => '<button class="ghost' + (r === S.roundType ? ' on' : '') + '" data-round="' + esc(r) + '">' + esc(r) + '</button>').join("");
+  $("a-override").querySelectorAll("button").forEach(b => b.onclick = () => {
+    S.roundType = b.dataset.round; renderAnalysis();
+  });
+
+  $("a-count").innerHTML = [20, 30]
+    .map(n => '<button class="ghost' + (n === S.count ? ' on' : '') + '" data-count="' + n + '">' + n + ' questions</button>').join("");
+  $("a-count").querySelectorAll("button").forEach(b => b.onclick = () => {
+    S.count = +b.dataset.count; renderAnalysis();
+  });
+
+  $("a-speech").innerHTML =
+    '<button class="ghost' + (S.speech ? ' on' : '') + '" data-sp="1">Include spoken answers</button>' +
+    '<button class="ghost' + (!S.speech ? ' on' : '') + '" data-sp="0">Multiple choice only</button>';
+  $("a-speech").querySelectorAll("button").forEach(b => b.onclick = () => {
+    S.speech = b.dataset.sp === "1"; renderAnalysis();
+  });
+
+  $("speech-note").textContent = S.speech
+    ? (hasSpeechApi() ? "Your browser supports voice input. You can always type instead."
+                      : "This browser does not support voice input, so spoken questions fall back to typing.")
+    : "";
+}
+
+$("btn-back").onclick = () => show("s-setup");
+
+function hasSpeechApi() {
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+/* ---------------- generation ---------------- */
+$("btn-generate").addEventListener("click", async () => {
+  setErr("err-gen", "");
+  S.questions = [];
+  show("s-gen");
+
+  const perBatch = 5;
+  const batches = Math.ceil(S.count / perBatch);
+  const hints = ["fundamentals and warm up", "core working knowledge", "applied problem solving", "trade offs and depth", "hard edge cases", "senior level depth"];
+
+  for (let i = 0; i < batches; i++) {
+    $("gen-status").textContent = "Batch " + (i + 1) + " of " + batches + ", " + hints[Math.min(i, hints.length - 1)];
+    const want = Math.min(perBatch, S.count - S.questions.length);
+    try {
+      const batch = await gemini(buildBatchPrompt(i, batches, want, hints[Math.min(i, hints.length - 1)]), 4096);
+      const clean = (Array.isArray(batch) ? batch : []).filter(validQ).slice(0, want);
+      if (!clean.length) throw new Error("Batch " + (i + 1) + " came back empty.");
+      S.questions = S.questions.concat(clean);
+    } catch (e) {
+      if (S.questions.length >= 5) break;
+      setErr("err-gen", e.message + "\n\nGo back and try again.");
+      return;
+    }
+    const pct = Math.round(S.questions.length / S.count * 100);
+    $("gen-bar").style.width = pct + "%";
+    $("gen-count").textContent = S.questions.length + " questions ready";
+  }
+
+  S.idx = 0; S.youHp = 100; S.bossHp = 100; S.results = [];
+  renderQuestion();
+  show("s-battle");
+});
+
+function buildBatchPrompt(i, total, want, hint) {
+  const speechLine = S.speech
+    ? 'Exactly ONE question in this batch must have "type": "speech". The rest are "mcq".'
+    : 'Every question must have "type": "mcq".';
+  return 'You are an expert technical interviewer writing questions for a ' + S.roundType + ' interview round.\n\n' +
+    'Focus topics: ' + (S.analysis.topics.join(", ") || "core fundamentals") + '\n' +
+    'This is batch ' + (i + 1) + ' of ' + total + '. Difficulty for this batch: ' + hint + '.\n' +
+    'Write ' + want + ' questions. Do not repeat questions from earlier batches.\n\n' +
+    speechLine + '\n\n' +
+    'Return ONLY a raw JSON array, no markdown fences, no commentary. Each element:\n' +
+    '{"question": the question text, "type": "mcq" or "speech", "options": array of exactly 4 short answer strings (empty array when type is speech), "correct_index": 0-based index of the right option (use -1 when type is speech), "explanation": for mcq why the right answer is right, for speech the key points a strong spoken answer must cover, "category": a short topic label such as "Arrays" or "Caching"}';
+}
+
+function validQ(q) {
+  if (!q || typeof q.question !== "string" || !q.question.trim()) return false;
+  if (q.type === "speech") return typeof q.explanation === "string";
+  return Array.isArray(q.options) && q.options.length >= 2 &&
+         Number.isInteger(q.correct_index) && q.correct_index >= 0 && q.correct_index < q.options.length;
+}
+
+/* ---------------- battle ---------------- */
+function damage() { return Math.ceil(100 / S.questions.length); }
+
+function renderQuestion() {
+  const q = S.questions[S.idx];
+  S.answered = false;
+  stopMic();
+
+  $("q-progress").textContent = "Question " + (S.idx + 1) + " of " + S.questions.length;
+  $("q-cat").textContent = q.category || S.roundType;
+  $("q-text").textContent = q.question;
+  $("q-feedback").classList.add("hidden");
+  $("q-feedback").innerHTML = "";
+  setErr("err-battle", "");
+
+  if (q.type === "speech") {
+    $("q-mcq").innerHTML = "";
+    $("q-speech").classList.remove("hidden");
+    $("transcript").value = "";
+    $("btn-submit-speech").disabled = false;
+    $("btn-mic").disabled = !hasSpeechApi();
+    $("mic-status").textContent = hasSpeechApi() ? "Answer out loud, or type it below." : "Voice input is not available in this browser. Type your answer.";
+  } else {
+    $("q-speech").classList.add("hidden");
+    $("q-mcq").innerHTML = q.options
+      .map((o, i) => '<button class="opt" data-i="' + i + '">' + esc(o) + '</button>').join("");
+    $("q-mcq").querySelectorAll(".opt").forEach(b => b.onclick = () => answerMcq(+b.dataset.i));
+  }
+  paintHp();
+}
+
+function paintHp() {
+  $("hp-you-fill").style.width = Math.max(0, S.youHp) + "%";
+  $("hp-boss-fill").style.width = Math.max(0, S.bossHp) + "%";
+  $("hp-you-num").textContent = Math.max(0, S.youHp) + " / 100";
+  $("hp-boss-num").textContent = Math.max(0, S.bossHp) + " / 100";
+}
+
+function answerMcq(picked) {
+  if (S.answered) return;
+  S.answered = true;
+  const q = S.questions[S.idx];
+  const right = picked === q.correct_index;
+
+  $("q-mcq").querySelectorAll(".opt").forEach((b, i) => {
+    b.disabled = true;
+    if (i === q.correct_index) b.classList.add("right");
+    else if (i === picked) b.classList.add("wrong");
+  });
+
+  if (right) {
+    S.bossHp -= damage();
+    $("boss-box").classList.add("shake");
+    setTimeout(() => $("boss-box").classList.remove("shake"), 340);
+  } else {
+    S.youHp -= damage();
+  }
+  paintHp();
+
+  S.results.push({ category: q.category || "General", type: "mcq", correct: right });
+  showFeedback(
+    right ? "Direct hit" : "You take damage",
+    right ? "Correct. " + (q.explanation || "") : "Not quite. " + (q.explanation || "")
+  );
+}
+
+async function submitSpeech() {
+  if (S.answered) return;
+  const text = $("transcript").value.trim();
+  if (text.length < 15) return setErr("err-battle", "Give a fuller answer before submitting.");
+  S.answered = true;
+  stopMic();
+  setErr("err-battle", "");
+
+  const btn = $("btn-submit-speech");
+  btn.disabled = true;
+  btn.textContent = "Grading";
+  const q = S.questions[S.idx];
+
+  let score = 0, feedback = "";
+  try {
+    const g = await gemini(
+      'You are grading a candidate\'s spoken answer in a technical interview. Be fair but rigorous.\n\n' +
+      'QUESTION: ' + q.question + '\n\n' +
+      'KEY POINTS A STRONG ANSWER COVERS: ' + q.explanation + '\n\n' +
+      'CANDIDATE TRANSCRIPT: ' + text + '\n\n' +
+      'The transcript came from speech to text, so ignore grammar, filler words, and transcription noise. Judge the substance.\n\n' +
+      'Return ONLY a raw JSON object, no markdown fences, no commentary:\n' +
+      '{"score": integer 0 to 100, "feedback": two or three sentences on what landed and what was missing}',
+      1024
+    );
+    score = Math.max(0, Math.min(100, parseInt(g.score, 10) || 0));
+    feedback = g.feedback || "";
+  } catch (e) {
+    setErr("err-battle", "Grading failed: " + e.message + " Scoring this one as a miss.");
+  }
+
+  const d = damage();
+  let title;
+  if (score >= 80) { S.bossHp -= d * 2; title = "Critical hit"; }
+  else if (score >= 50) { S.bossHp -= d; title = "Solid hit"; }
+  else { S.youHp -= d; title = "You take damage"; }
+
+  $("boss-box").classList.add("shake");
+  setTimeout(() => $("boss-box").classList.remove("shake"), 340);
+  paintHp();
+
+  S.results.push({ category: q.category || "General", type: "speech", score: score });
+  btn.textContent = "Submit answer";
+  showFeedback(title + ", scored " + score + " out of 100", feedback);
+}
+
+$("btn-submit-speech").addEventListener("click", submitSpeech);
+
+function showFeedback(title, body) {
+  const last = S.idx === S.questions.length - 1;
+  const over = S.youHp <= 0 || S.bossHp <= 0;
+  $("q-feedback").innerHTML =
+    '<div class="fb"><h3>' + esc(title) + '</h3><p class="muted" style="margin:0">' + esc(body) + '</p></div>' +
+    '<div class="row" style="margin-top:16px"><button id="btn-next">' +
+    ((last || over) ? "See my debrief" : "Next question") + '</button></div>';
+  $("btn-next").onclick = () => {
+    if (last || over) return runDebrief();
+    S.idx++;
+    renderQuestion();
+  };
+  $("q-feedback").classList.remove("hidden");
+}
+
+/* ---------------- speech input ---------------- */
+$("btn-mic").addEventListener("click", () => S.listening ? stopMic() : startMic());
+
+function startMic() {
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Ctor) return;
+  const rec = new Ctor();
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.lang = "en-US";
+
+  const base = $("transcript").value ? $("transcript").value.trim() + " " : "";
+  rec.onresult = ev => {
+    let out = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) out += ev.results[i][0].transcript;
+    $("transcript").value = base + out;
+  };
+  rec.onerror = ev => {
+    stopMic();
+    setErr("err-battle", ev.error === "not-allowed"
+      ? "Microphone access was blocked. Allow it in your browser, or type your answer."
+      : "Voice input error: " + ev.error + ". You can type your answer instead.");
+  };
+  rec.onend = () => { if (S.listening) stopMic(); };
+
+  S.recognizer = rec;
+  S.listening = true;
+  $("btn-mic").textContent = "Stop";
+  $("btn-mic").classList.add("mic-on");
+  $("mic-status").textContent = "Listening";
+  rec.start();
+}
+
+function stopMic() {
+  if (S.recognizer) { try { S.recognizer.stop(); } catch (e) {} }
+  S.recognizer = null;
+  S.listening = false;
+  $("btn-mic").textContent = "Start speaking";
+  $("btn-mic").classList.remove("mic-on");
+  if ($("mic-status").textContent === "Listening") $("mic-status").textContent = "Stopped. Edit your answer if you need to.";
+}
+
+/* ---------------- debrief ---------------- */
+async function runDebrief() {
+  show("s-debrief");
+  const won = S.bossHp <= 0;
+  const lost = S.youHp <= 0;
+  $("d-title").textContent = won ? "You beat The Interviewer" : lost ? "The Interviewer got the better of you" : "Session complete";
+  $("d-line").textContent = "You answered " + S.results.length + " of " + S.questions.length +
+    " questions. Your HP " + Math.max(0, S.youHp) + ", The Interviewer " + Math.max(0, S.bossHp) + ".";
+
+  // category breakdown
+  const cats = {};
+  S.results.forEach(r => {
+    const c = cats[r.category] || (cats[r.category] = { got: 0, total: 0 });
+    c.total += 100;
+    c.got += r.type === "speech" ? r.score : (r.correct ? 100 : 0);
+  });
+  $("d-cats").innerHTML = Object.keys(cats).map(name => {
+    const pct = Math.round(cats[name].got / cats[name].total * 100);
+    return '<div class="cat-row"><span>' + esc(name) + '</span>' +
+           '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%"></span></span>' +
+           '<span class="muted" style="text-align:right">' + pct + '%</span></div>';
+  }).join("") || '<p class="muted">No questions answered.</p>';
+
+  // ai debrief
+  $("d-readiness").textContent = "Writing your debrief";
+  $("d-lists").innerHTML = "";
+  const summary = S.results.map(r =>
+    r.category + "/" + r.type + "/" + (r.type === "speech" ? r.score + " of 100" : (r.correct ? "correct" : "wrong"))
+  ).join("; ");
+
+  try {
+    const d = await gemini(
+      'You are a technical interview coach writing a short debrief for a candidate who just finished a ' + S.roundType + ' practice session.\n\n' +
+      'Focus topics for the role: ' + (S.analysis.topics.join(", ") || "general") + '\n' +
+      'Per question results, formatted as category/type/outcome: ' + summary + '\n\n' +
+      'Do not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no commentary:\n' +
+      '{"overall_readiness": two or three sentences on how ready they are for this round, "strengths": array of 2 to 3 short strings, "focus_areas": array of 2 to 3 short strings, "tip": one concrete thing to do before the next session}',
+      1024
+    );
+    $("d-readiness").textContent = d.overall_readiness || "";
+    $("d-lists").innerHTML =
+      listBlock("Strengths", d.strengths) +
+      listBlock("Focus areas", d.focus_areas) +
+      (d.tip ? '<h2 style="margin-top:20px">Do this next</h2><p class="muted">' + esc(d.tip) + '</p>' : "");
+  } catch (e) {
+    $("d-readiness").textContent = "The AI debrief could not be generated: " + e.message + " Your category breakdown above is still accurate.";
+  }
+}
+
+function listBlock(title, arr) {
+  if (!Array.isArray(arr) || !arr.length) return "";
+  return '<h2 style="margin-top:20px">' + title + '</h2><ul>' +
+    arr.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul>";
+}
+
+$("btn-restart").onclick = () => {
+  S.questions = []; S.results = []; S.idx = 0; S.youHp = 100; S.bossHp = 100;
+  show("s-setup");
+};
+</script>
+</body>
+</html>
