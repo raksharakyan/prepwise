@@ -90,3 +90,31 @@ commentary:
 "strengths": array of 2 to 3 short strings, "focus_areas": array of 2 to 3 short
 strings, "tip": one concrete thing to do before the next session}
 ```
+
+
+## Model and request notes
+
+Use `gemini-3.6-flash`. The older `gemini-2.5-flash` is retired and returns a 404 for
+keys issued after its cutoff.
+
+Gemini 3.x models think before answering, and those thinking tokens count against
+`maxOutputTokens`. A small budget gets fully consumed by thinking and the response
+comes back empty with `finishReason: MAX_TOKENS`. Set `thinkingConfig.thinkingBudget`
+to 0 for all four prompts, since each one asks for structured JSON rather than
+reasoning.
+
+```json
+{
+  "contents": [{ "role": "user", "parts": [{ "text": "PROMPT" }] }],
+  "generationConfig": {
+    "temperature": 0.7,
+    "maxOutputTokens": 4096,
+    "responseMimeType": "application/json",
+    "thinkingConfig": { "thinkingBudget": 0 }
+  }
+}
+```
+
+Retry 429 and 5xx responses with exponential backoff, up to four attempts. Gemini
+returns transient 503s often enough that a single unretried batch failure will
+otherwise cut a 20 question session down to 5.

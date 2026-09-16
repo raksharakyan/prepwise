@@ -243,7 +243,7 @@ const S = {
   listening: false
 };
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.6-flash";
 const ROUNDS = ["Technical/DSA", "System Design", "Mixed"];
 
 const $ = id => document.getElementById(id);
@@ -255,7 +255,21 @@ const show = id => {
 const setErr = (id, msg) => { $(id).textContent = msg || ""; };
 
 /* ---------------- gemini ---------------- */
-async function gemini(prompt, maxTokens) {
+async function gemini(prompt, maxTokens, attempt) {
+  attempt = attempt || 1;
+  const MAX_ATTEMPTS = 4;
+  try {
+    return await geminiOnce(prompt, maxTokens);
+  } catch (e) {
+    if (e.transient && attempt < MAX_ATTEMPTS) {
+      await new Promise(r => setTimeout(r, 800 * Math.pow(2, attempt - 1)));
+      return gemini(prompt, maxTokens, attempt + 1);
+    }
+    throw e;
+  }
+}
+
+async function geminiOnce(prompt, maxTokens) {
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL +
               ":generateContent?key=" + encodeURIComponent(S.key);
   const res = await fetch(url, {
@@ -266,7 +280,10 @@ async function gemini(prompt, maxTokens) {
       generationConfig: {
         temperature: 0.7,
         maxOutputTokens: maxTokens || 2048,
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        // Gemini 3.x models think by default and those tokens count against
+        // maxOutputTokens, which truncates the reply before any JSON is written.
+        thinkingConfig: { thinkingBudget: 0 }
       }
     })
   });
@@ -275,14 +292,23 @@ async function gemini(prompt, maxTokens) {
     let detail = "";
     try { detail = (await res.json()).error.message; } catch (e) { detail = await res.text(); }
     if (res.status === 400 && /API key/i.test(detail)) throw new Error("That API key was rejected. Check it at aistudio.google.com/apikey.");
-    if (res.status === 429) throw new Error("Gemini rate limit hit. Wait about a minute and try again.");
-    throw new Error("Gemini returned " + res.status + ": " + detail);
+    if (res.status === 404) throw new Error("The model " + MODEL + " is not available to this key. Gemini retires older models, check aistudio.google.com for the current one.");
+    const err = new Error(res.status === 429
+      ? "Gemini rate limit hit. Waiting before retrying."
+      : "Gemini returned " + res.status + ": " + detail);
+    // 429 and 5xx are worth retrying, everything else is a real failure.
+    err.transient = res.status === 429 || res.status >= 500;
+    throw err;
   }
 
   const data = await res.json();
   const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
   const raw = parts ? parts.map(p => p.text || "").join("") : "";
-  if (!raw.trim()) throw new Error("Gemini returned an empty response. Try again.");
+  if (!raw.trim()) {
+    const e = new Error("Gemini returned an empty response.");
+    e.transient = true;
+    throw e;
+  }
 
   const cleaned = raw.replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "").trim();
   try {
@@ -391,6 +417,7 @@ $("btn-generate").addEventListener("click", async () => {
 
   const perBatch = 5;
   const batches = Math.ceil(S.count / perBatch);
+  let shortfall = "";
   const hints = ["fundamentals and warm up", "core working knowledge", "applied problem solving", "trade offs and depth", "hard edge cases", "senior level depth"];
 
   for (let i = 0; i < batches; i++) {
@@ -402,9 +429,15 @@ $("btn-generate").addEventListener("click", async () => {
       if (!clean.length) throw new Error("Batch " + (i + 1) + " came back empty.");
       S.questions = S.questions.concat(clean);
     } catch (e) {
-      if (S.questions.length >= 5) break;
-      setErr("err-gen", e.message + "\n\nGo back and try again.");
-      return;
+      // Short of a usable set, stop and surface the real reason.
+      if (S.questions.length < 5) {
+        setErr("err-gen", e.message + "\n\nGo back and try again.");
+        return;
+      }
+      // Otherwise carry on with what we have, but say so rather than
+      // silently starting a shorter session than the user asked for.
+      shortfall = e.message;
+      break;
     }
     const pct = Math.round(S.questions.length / S.count * 100);
     $("gen-bar").style.width = pct + "%";
@@ -412,6 +445,18 @@ $("btn-generate").addEventListener("click", async () => {
   }
 
   S.idx = 0; S.youHp = 100; S.bossHp = 100; S.results = [];
+
+  if (S.questions.length < S.count) {
+    $("gen-status").textContent = "Built " + S.questions.length + " of " + S.count + " questions";
+    setErr("err-gen", "Gemini stopped early: " + shortfall +
+      "\n\nYou can start this " + S.questions.length + " question session, or go back and try for the full set.");
+    $("gen-count").innerHTML = '<button id="btn-go-short">Start with ' + S.questions.length + ' questions</button>' +
+      ' <button class="ghost" id="btn-regen">Back</button>';
+    $("btn-go-short").onclick = () => { renderQuestion(); show("s-battle"); };
+    $("btn-regen").onclick = () => show("s-analysis");
+    return;
+  }
+
   renderQuestion();
   show("s-battle");
 });
