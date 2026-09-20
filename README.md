@@ -26,6 +26,15 @@ Paste in a job description and Prepwise works out whether the round leans DSA, s
 | Data | Supabase |
 | API testing | Postman |
 
+## Where this goes next
+
+The debrief already works out which categories a candidate is weakest in. The next
+step is to feed that back in: a follow-up session that skips what they have already
+proven and generates questions only against the areas they lost points on, getting
+harder each time those areas improve. That turns Prepwise from a single assessment
+into something a candidate returns to across a whole interview cycle. It depends on
+session history, which is what the Supabase work enables.
+
 ## Status
 
 Working single-file prototype exists. Current focus is swapping the AI provider to Gemini so the app runs outside the Claude.ai sandbox, then porting to Lovable and wiring up Supabase.
