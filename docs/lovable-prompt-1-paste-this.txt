@@ -1,0 +1,180 @@
+Build Prepwise, a one-stop AI prep tool for technical interview rounds. Single page
+React app, no routing, dark theme.
+
+Do not describe it as a game anywhere in the UI copy. The boss battle is a scoring
+style inside a prep tool, not its identity. Never use em dashes in any UI text, use
+commas, colons or parentheses instead.
+
+VISUAL STYLE
+Dark navy background (#0b0d17), raised panels (#141829) with subtle borders
+(#2a3050), light text (#e8eaf6), muted grey-blue for secondary text (#8f97bd),
+purple accent (#7c5cff), teal secondary (#00d4b8). Rounded corners around 12 to
+14px. Clean and modern, not neon, not cartoonish.
+
+FOUR SCREENS, shown one at a time in this order.
+
+SCREEN 1, SETUP
+- A large textarea for a job description, plus a button to upload a .txt file that
+  reads into the textarea.
+- An "Analyze this role" button. Disabled state and inline error messages, no alerts.
+- Do NOT put an API key field in the interface and do not store a key in
+  localStorage. Read the key from an environment variable or project secret. If no
+  key is configured, disable the button and say so inline.
+
+SCREEN 2, ANALYSIS
+Shows the detected round type as a heading, the AI's one line reasoning, and the
+focus topics as pill chips. Below that, three groups of toggle buttons:
+- Round type override: "Technical/DSA", "System Design", "Mixed"
+- Question count: 20 or 30
+- Spoken answers: on or off
+Then a "Build my question set" button and a "Back" button.
+
+SCREEN 3, GENERATION
+A progress bar with a status line naming the current batch, and a running count of
+questions ready.
+
+SCREEN 4, BATTLE
+Two HP bars side by side at the top: "YOU" (teal to green gradient) and "THE
+INTERVIEWER" (amber to red gradient), each showing a number out of 100 and animating
+smoothly when they change.
+
+Below, a card with the question number, a category chip, and the question text.
+- For multiple choice questions: four option buttons. On click, disable all of them,
+  outline the correct one green and a wrong pick red, then show a feedback panel.
+- For spoken questions: a "Start speaking" button using the browser
+  SpeechRecognition or webkitSpeechRecognition API (continuous, interim results,
+  en-US), streaming into an editable textarea. If the browser lacks the API, disable
+  the mic button and say so, the textarea still works for typing. A "Submit answer"
+  button sends it for AI grading.
+
+Feedback panel shows a title, the explanation or grading feedback, and a button that
+reads "Next question", or "See my debrief" on the last question.
+
+BATTLE MECHANICS
+Both sides start at 100 HP. Damage per question is ceil(100 / total questions).
+- Correct multiple choice: The Interviewer loses one unit of damage.
+- Wrong multiple choice: the user loses one unit.
+- Spoken answer scoring 80 or above: critical hit, The Interviewer loses double.
+- Spoken answer scoring 50 to 79: The Interviewer loses one unit.
+- Spoken answer below 50: the user loses one unit.
+Shake the Interviewer's HP box briefly on a hit. If either side hits 0, jump straight
+to the debrief.
+
+SCREEN 5, DEBRIEF
+A heading that reflects the outcome (beat The Interviewer, lost, or completed), a
+line with the final HP on both sides, a per-category breakdown as horizontal bars
+with percentages, then an AI written section: overall readiness, a strengths list, a
+focus areas list, and one concrete tip. Finally a "Start another session" button.
+
+GEMINI CALLS
+Call the Gemini REST API directly from the browser for now:
+POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=KEY
+Body: { contents: [{ role: "user", parts: [{ text: PROMPT }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: N,
+                            responseMimeType: "application/json" } }
+Read the text from candidates[0].content.parts, strip any stray markdown code fences,
+then JSON.parse. On failure, retry parsing by extracting the outermost JSON block.
+Surface a readable error for a rejected key (400) and for rate limits (429).
+
+Questions are generated in batches of five so each response stays small. Show batch
+progress. Difficulty rises across batches: fundamentals, core working knowledge,
+applied problem solving, trade offs and depth, hard edge cases, senior level depth.
+Validate every generated question and drop malformed ones.
+
+Use the four prompts below verbatim.
+
+=== THE FOUR PROMPTS, USE THESE EXACTLY ===
+
+Send each of these to Gemini as the user message. Substitute the {BRACED} values.
+Every one of them must be sent with responseMimeType "application/json" and
+thinkingConfig.thinkingBudget set to 0.
+
+--- 1. JOB DESCRIPTION ANALYSIS (maxOutputTokens 1024) ---
+
+You are an expert technical interview coach. Read this job description and decide
+which interview round the candidate should prepare for.
+
+Return ONLY a raw JSON object, no markdown fences, no commentary, with exactly these
+keys:
+{"round_type": one of "Technical/DSA" or "System Design" or "Mixed", "reasoning": one
+or two sentences explaining the call, "topics": an array of 4 to 7 specific technical
+topics to focus on}
+
+JOB DESCRIPTION:
+{JD_TEXT}
+
+--- 2. BATCH QUESTION GENERATION (maxOutputTokens 4096, one call per batch of 5) ---
+
+You are an expert technical interviewer writing questions for a {ROUND_TYPE}
+interview round.
+
+Focus topics: {TOPICS}
+This is batch {N} of {TOTAL}. Difficulty for this batch: {HINT}.
+Write {COUNT} questions. Do not repeat questions from earlier batches.
+
+Exactly ONE question in this batch must have "type": "speech". The rest are "mcq".
+
+Return ONLY a raw JSON array, no markdown fences, no commentary. Each element:
+{"question": the question text, "type": "mcq" or "speech", "options": array of
+exactly 4 short answer strings (empty array when type is speech), "correct_index":
+0-based index of the right option (use -1 when type is speech), "explanation": for
+mcq why the right answer is right, for speech the key points a strong spoken answer
+must cover, "category": a short topic label such as "Arrays" or "Caching"}
+
+When spoken answers are switched off, replace the speech line with:
+Every question must have "type": "mcq".
+
+The {HINT} values, in batch order: fundamentals and warm up, core working knowledge,
+applied problem solving, trade offs and depth, hard edge cases, senior level depth.
+
+--- 3. SPOKEN ANSWER GRADING (maxOutputTokens 1024) ---
+
+You are grading a candidate's spoken answer in a technical interview. Be fair but
+rigorous.
+
+QUESTION: {QUESTION}
+
+KEY POINTS A STRONG ANSWER COVERS: {EXPLANATION}
+
+CANDIDATE TRANSCRIPT: {TRANSCRIPT}
+
+The transcript came from speech to text, so ignore grammar, filler words, and
+transcription noise. Judge the substance.
+
+Return ONLY a raw JSON object, no markdown fences, no commentary:
+{"score": integer 0 to 100, "feedback": two or three sentences on what landed and
+what was missing}
+
+--- 4. DEBRIEF (maxOutputTokens 1024) ---
+
+You are a technical interview coach writing a short debrief for a candidate who just
+finished a {ROUND_TYPE} practice session.
+
+Focus topics for the role: {TOPICS}
+Per question results, formatted as category/type/outcome: {SUMMARY}
+
+Do not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no
+commentary:
+{"overall_readiness": two or three sentences on how ready they are for this round,
+"strengths": array of 2 to 3 short strings, "focus_areas": array of 2 to 3 short
+strings, "tip": one concrete thing to do before the next session}
+
+{SUMMARY} is a compact string joined by semicolons, for example:
+Arrays/mcq/correct; Caching/speech/72 of 100; Graphs/mcq/wrong
+
+=== THINGS THAT WILL BREAK IF YOU GET THEM WRONG ===
+
+1. Use the model gemini-3.6-flash. Do not use gemini-2.5-flash, it is retired and
+   returns 404 for new API keys.
+2. Gemini 3.x models think before answering and those thinking tokens count against
+   maxOutputTokens. Without thinkingConfig.thinkingBudget set to 0, a small budget is
+   consumed entirely by thinking and the response comes back EMPTY with finishReason
+   MAX_TOKENS. This is silent, there is no error.
+3. Call the REST endpoint directly with fetch. Do not install a Gemini SDK package,
+   the browser builds of these are unreliable here.
+4. Gemini returns transient 503 errors frequently. Retry 429 and 5xx with exponential
+   backoff, four attempts. Without this a single failed batch silently produces a
+   much shorter session than the user asked for. If the set still comes up short,
+   TELL the user and let them choose, never start a shorter session silently.
+5. When rendering the debrief category bars, the bar fill must be display block. An
+   inline element ignores height and the bars render invisible.
