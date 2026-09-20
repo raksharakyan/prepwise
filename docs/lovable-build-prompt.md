@@ -27,10 +27,12 @@ purple accent (#7c5cff), teal secondary (#00d4b8). Rounded corners around 12 to
 FOUR SCREENS, shown one at a time in this order.
 
 SCREEN 1, SETUP
-- A password-type input for a Google Gemini API key, saved to localStorage.
 - A large textarea for a job description, plus a button to upload a .txt file that
   reads into the textarea.
 - An "Analyze this role" button. Disabled state and inline error messages, no alerts.
+- Do NOT put an API key field in the interface and do not store a key in
+  localStorage. Read the key from an environment variable or project secret. If no
+  key is configured, disable the button and say so inline.
 
 SCREEN 2, ANALYSIS
 Shows the detected round type as a heading, the AI's one line reasoning, and the
@@ -110,8 +112,9 @@ The function reads GEMINI_API_KEY from Supabase secrets, accepts { prompt,
 maxOutputTokens } in the request body, calls the Gemini API, and returns the parsed
 JSON. The frontend calls the Edge Function instead of Google directly.
 
-Remove the API key input from the setup screen and delete the localStorage key
-handling. The setup screen should now open straight to the job description.
+The setup screen already has no key field. After this change the frontend should
+hold no key at all, in any form: no environment variable read from client code, no
+build-time inlining. Every Gemini call goes through the Edge Function.
 ```
 
 ---

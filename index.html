@@ -105,12 +105,6 @@
     <p class="sub">Paste a job description. Prepwise works out what to study, builds a question set around it, and puts you up against The Interviewer.</p>
 
     <div class="card">
-      <label for="key">Gemini API key</label>
-      <input id="key" type="password" placeholder="Paste your Google AI Studio key" autocomplete="off">
-      <p class="muted" style="margin:8px 0 0">Stored in this browser only, never sent anywhere except Google. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent-2)">aistudio.google.com/apikey</a>.</p>
-    </div>
-
-    <div class="card">
       <label for="jd">Job description</label>
       <textarea id="jd" rows="11" placeholder="Paste the full job description here"></textarea>
       <div class="row" style="margin-top:12px">
@@ -224,6 +218,7 @@
 
 </div>
 
+<script src="config.js" onerror="window.PREPWISE_CONFIG=null"></script>
 <script>
 "use strict";
 
@@ -323,12 +318,15 @@ async function geminiOnce(prompt, maxTokens) {
 }
 
 /* ---------------- setup screen ---------------- */
-S.key = localStorage.getItem("prepwise_key") || "";
-$("key").value = S.key;
-$("key").addEventListener("input", e => {
-  S.key = e.target.value.trim();
-  localStorage.setItem("prepwise_key", S.key);
-});
+// The key comes from config.js, which is gitignored and never committed.
+// It is deliberately not entered through the interface and not persisted
+// to localStorage. See the deployment note in README.md.
+S.key = (window.PREPWISE_CONFIG && window.PREPWISE_CONFIG.GEMINI_API_KEY || "").trim();
+if (!S.key) {
+  setErr("err-setup",
+    "No Gemini API key configured.\n\nCopy config.example.js to config.js and add your key from aistudio.google.com/apikey, then reload this page.");
+  $("btn-analyze").disabled = true;
+}
 
 $("file").addEventListener("change", e => {
   const f = e.target.files[0];
@@ -340,9 +338,8 @@ $("file").addEventListener("change", e => {
 
 $("btn-analyze").addEventListener("click", async () => {
   setErr("err-setup", "");
-  S.key = $("key").value.trim();
   S.jd = $("jd").value.trim();
-  if (!S.key) return setErr("err-setup", "Add your Gemini API key first.");
+  if (!S.key) return setErr("err-setup", "No Gemini API key configured. Add one to config.js and reload.");
   if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
 
   const btn = $("btn-analyze");

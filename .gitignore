@@ -13,3 +13,6 @@ build/
 # OS
 .DS_Store
 .claude/
+
+# Local API key, never commit
+config.js
