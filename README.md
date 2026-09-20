@@ -26,13 +26,37 @@ Paste in a job description and Prepwise works out whether the round leans DSA, s
 | Data | Supabase |
 | API testing | Postman |
 
+## Where this goes next
+
+The debrief already works out which categories a candidate is weakest in. The next
+step is to feed that back in: a follow-up session that skips what they have already
+proven and generates questions only against the areas they lost points on, getting
+harder each time those areas improve. That turns Prepwise from a single assessment
+into something a candidate returns to across a whole interview cycle. It depends on
+session history, which is what the Supabase work enables.
+
 ## Status
 
 Working single-file prototype exists. Current focus is swapping the AI provider to Gemini so the app runs outside the Claude.ai sandbox, then porting to Lovable and wiring up Supabase.
 
 ## Setup
 
-Copy `.env.example` to `.env` and add a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
+Copy `config.example.js` to `config.js` and add a Gemini API key from
+[Google AI Studio](https://aistudio.google.com/apikey), then open `index.html`.
+
+`config.js` is gitignored and must never be committed.
+
+### On the API key
+
+The key is read from `config.js` rather than typed into the interface, and it is not
+written to localStorage. That keeps it out of the UI and out of version control, but
+it does not keep it out of the browser: anyone who can load a deployed copy of the
+page can read `config.js`.
+
+So this arrangement is for local runs and demo recordings. To deploy publicly, the
+Gemini call moves into a Supabase Edge Function that holds the key as a server side
+secret, and the page calls that function instead of calling Google directly. Prompt 2
+in `docs/lovable-build-prompt.md` covers it.
 
 ## Repo layout
 

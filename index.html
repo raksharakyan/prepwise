@@ -82,8 +82,10 @@
   .fb { border-left: 3px solid var(--accent); padding: 12px 16px; background: var(--panel-2); border-radius: 0 10px 10px 0; margin-top: 16px; }
   .fb h3 { margin: 0 0 6px; font-size: 15px; }
 
-  .bar-track { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
-  .bar-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
+  /* display:block matters: these are spans in the debrief, and an inline
+     box ignores height, which left every category bar invisible. */
+  .bar-track { display: block; height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+  .bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
 
   .cat-row { display: grid; grid-template-columns: 1fr 90px 46px; gap: 10px; align-items: center; margin-bottom: 10px; font-size: 14px; }
   ul { margin: 8px 0 0; padding-left: 20px; }
@@ -101,12 +103,6 @@
     <div class="tag">Prepwise</div>
     <h1>Your one-stop AI prep for technical rounds</h1>
     <p class="sub">Paste a job description. Prepwise works out what to study, builds a question set around it, and puts you up against The Interviewer.</p>
-
-    <div class="card">
-      <label for="key">Gemini API key</label>
-      <input id="key" type="password" placeholder="Paste your Google AI Studio key" autocomplete="off">
-      <p class="muted" style="margin:8px 0 0">Stored in this browser only, never sent anywhere except Google. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent-2)">aistudio.google.com/apikey</a>.</p>
-    </div>
 
     <div class="card">
       <label for="jd">Job description</label>
@@ -222,6 +218,7 @@
 
 </div>
 
+<script src="config.js" onerror="window.PREPWISE_CONFIG=null"></script>
 <script>
 "use strict";
 
@@ -321,12 +318,15 @@ async function geminiOnce(prompt, maxTokens) {
 }
 
 /* ---------------- setup screen ---------------- */
-S.key = localStorage.getItem("prepwise_key") || "";
-$("key").value = S.key;
-$("key").addEventListener("input", e => {
-  S.key = e.target.value.trim();
-  localStorage.setItem("prepwise_key", S.key);
-});
+// The key comes from config.js, which is gitignored and never committed.
+// It is deliberately not entered through the interface and not persisted
+// to localStorage. See the deployment note in README.md.
+S.key = (window.PREPWISE_CONFIG && window.PREPWISE_CONFIG.GEMINI_API_KEY || "").trim();
+if (!S.key) {
+  setErr("err-setup",
+    "No Gemini API key configured.\n\nCopy config.example.js to config.js and add your key from aistudio.google.com/apikey, then reload this page.");
+  $("btn-analyze").disabled = true;
+}
 
 $("file").addEventListener("change", e => {
   const f = e.target.files[0];
@@ -338,9 +338,8 @@ $("file").addEventListener("change", e => {
 
 $("btn-analyze").addEventListener("click", async () => {
   setErr("err-setup", "");
-  S.key = $("key").value.trim();
   S.jd = $("jd").value.trim();
-  if (!S.key) return setErr("err-setup", "Add your Gemini API key first.");
+  if (!S.key) return setErr("err-setup", "No Gemini API key configured. Add one to config.js and reload.");
   if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
 
   const btn = $("btn-analyze");

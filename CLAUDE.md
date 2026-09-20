@@ -32,6 +32,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
 - [ ] Supabase integration: persist session history, quiz results, and progress over time so users can track readiness across multiple sessions
 - [ ] Rebuild/port the working HTML/JS prototype into Lovable (or Bubble/Replit as fallback) for a more polished, deployable app
+- [ ] Adaptive follow-up sessions: use the debrief's category breakdown to generate the next question set against the user's weak areas only, skipping what they have already proven and raising difficulty as those areas improve (depends on Supabase session history)
 - [ ] Optional: expand beyond technical/system-design rounds to behavioral prep
 
 ## Existing Prototype
