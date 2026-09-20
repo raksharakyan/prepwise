@@ -82,8 +82,10 @@
   .fb { border-left: 3px solid var(--accent); padding: 12px 16px; background: var(--panel-2); border-radius: 0 10px 10px 0; margin-top: 16px; }
   .fb h3 { margin: 0 0 6px; font-size: 15px; }
 
-  .bar-track { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
-  .bar-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
+  /* display:block matters: these are spans in the debrief, and an inline
+     box ignores height, which left every category bar invisible. */
+  .bar-track { display: block; height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+  .bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
 
   .cat-row { display: grid; grid-template-columns: 1fr 90px 46px; gap: 10px; align-items: center; margin-bottom: 10px; font-size: 14px; }
   ul { margin: 8px 0 0; padding-left: 20px; }
