@@ -28,7 +28,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [x] AI grading of spoken answers (0 to 100 score plus written feedback)
 - [x] Boss-battle style UI: HP bars, category tags per question, live progress
 - [x] AI-generated debrief screen with category breakdown and strengths/focus areas/tip
-- [ ] Swap AI provider from Claude API (only free inside Claude.ai artifacts) to Google AI Studio's Gemini API using a real free-tier API key, so the app works once deployed outside Claude.ai
+- [x] Swap AI provider from Claude API (only free inside Claude.ai artifacts) to Google AI Studio's Gemini API using a real free-tier API key, so the app works once deployed outside Claude.ai
 - [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
 - [ ] Supabase integration: persist session history, quiz results, and progress over time so users can track readiness across multiple sessions
 - [ ] Rebuild/port the working HTML/JS prototype into Lovable (or Bubble/Replit as fallback) for a more polished, deployable app
@@ -36,7 +36,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 
 ## Existing Prototype
 
-A working single-file HTML/JS prototype already exists (built as a Claude.ai artifact) implementing the full flow above:
+A working single-file HTML/JS prototype lives at `index.html`, implementing the full flow above and verified end to end against the live Gemini API:
 
 - JD paste/upload screen, then an AI-analysis screen showing detected round type + topics with override buttons and question-count/speech toggles
 - Batched quiz generation: calls the LLM in batches of 5 questions at a time (to fit small max-token responses), building up to the full 20 or 30 question set with a live progress bar
@@ -44,9 +44,24 @@ A working single-file HTML/JS prototype already exists (built as a Claude.ai art
 - Speech input uses the browser's native `SpeechRecognition` / `webkitSpeechRecognition` API, with a textarea fallback for typing when unsupported or when the transcript needs editing
 - Debrief screen: category breakdown bars plus an AI-written readiness summary, strengths, focus areas, and a tip
 
-**Known limitation to fix first:** the prototype calls `https://api.anthropic.com/v1/messages` with no API key, which only works inside Claude.ai's artifact sandbox (the platform proxies it for free). This will NOT work once deployed elsewhere. The first real task in this repo should be swapping this out for Google AI Studio's Gemini API using a real (free-tier) API key, since Gemini's Flash models have a genuinely free tier and Google AI Studio is an approved tool for this capstone.
+**Provider swap is done.** The prototype originally called `https://api.anthropic.com/v1/messages`
+with no API key, which only worked inside Claude.ai's artifact sandbox. It now calls Google AI
+Studio's Gemini API with a real free-tier key and runs anywhere.
 
-Prompt patterns already designed and working, to preserve when porting to Gemini:
+Three things that broke during the swap, documented in `docs/ai-prompts.md`:
+
+- `gemini-2.5-flash` is retired and returns 404 for newly issued keys. Use `gemini-3.6-flash`.
+- Gemini 3.x models think before answering, and thinking tokens count against `maxOutputTokens`.
+  A small budget gets consumed entirely by thinking and the reply comes back empty. All four
+  prompts set `thinkingConfig.thinkingBudget` to 0.
+- Transient 503s from Gemini are common enough that an unretried batch failure silently cut a
+  20 question session down to 5. Retry 429 and 5xx with exponential backoff.
+
+**Remaining limitation:** the Gemini key is entered by the user and held in the browser. Before
+deploying with your own key, move the call into a Supabase Edge Function so the key stays
+server-side. Prompt 2 in `docs/lovable-build-prompt.md` covers this.
+
+Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 
 - **JD analysis prompt**: returns strict JSON `{round_type, reasoning, topics}` given the JD text
 - **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
