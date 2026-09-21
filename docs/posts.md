@@ -22,36 +22,27 @@ Week 1 done, prototype coming next 🚀
 
 #IITPatnaCapstone
 
-## Post 2, Week 2 (draft)
+## Post 2, Week 2 (final)
 
-Week 2 of my IIT Patna Capstone Sprint: Prepwise now runs end to end.
+Image: `assets/prepwise-week2-infographic.png`
 
-Paste a job description and it calls Gemini to work out whether the role leans DSA,
-system design, or both, then pulls out the specific topics worth studying. From there
-it generates a full question set in batches of five, ramping from fundamentals up to
-senior level edge cases.
+Week 2 of my IIT Patna Capstone Sprint: Prepwise works end to end. 🎯
 
-The part I did not expect to be the fun bit: answering out loud. A handful of
-questions drop the multiple choice options entirely and open the mic instead. Your
-spoken answer goes to Gemini, which scores it out of 100 against the key points a
-strong answer should hit, and tells you what you missed. Score above 80 and it lands
-as a critical hit on The Interviewer.
+Paste in a job description and it works out whether you are walking into a DSA round, a system design round, or both. It pulls out the exact topics worth studying, builds a 20 question set around them, and ramps from fundamentals up to senior level edge cases.
 
-🔧 What actually got built this week:
-🤖 Swapped the AI layer to Google AI Studio (Gemini) so it runs anywhere
-📦 Batched question generation, so no single response gets truncated
+The part I am proudest of is answering out loud. A few questions drop the multiple choice options and open the mic instead. Gemini grades your spoken answer out of 100 against what a strong answer should cover, then tells you exactly what you missed. Nail it and you land a critical hit on The Interviewer.
+
+🔧 What got built this week:
+🤖 Google AI Studio (Gemini) powering all four AI steps
 🎙️ Web Speech API for voice answers, with a typed fallback
-⚔️ HP bars, damage per question, and an AI written debrief at the end
+⚔️ HP bars, damage per question, and a debrief that breaks down every topic
+🔁 Automatic retries, because free tier APIs fail more often than you would think
 
-Hardest lesson: getting an LLM to return clean JSON, every time, with no commentary
-wrapped around it. The fix was asking for raw JSON explicitly, setting the response
-type on the API call, and still stripping stray code fences before parsing. Belt and
-braces.
+Biggest lesson: the scariest bugs do not crash. At one point a single failed API call quietly turned a 20 question session into a 5 question one. No error, no warning, and everything looked fine. Now the app retries, and if it still comes up short, it tells you.
 
-Next up: rebuilding it in Lovable and wiring in Supabase so your sessions persist and
-you can watch your readiness climb over time.
+Next up is moving it to Lovable and adding Supabase so your sessions are saved. After that comes the feature I am most excited about: follow-up sessions that only target the topics you struggled with last time.
 
-#IITPatnaCapstone
+#IITPatnaCapstone #GenerativeAI #InterviewPrep #BuildInPublic
 
 ## Post 3, Week 3 (outline)
 
