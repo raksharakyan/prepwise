@@ -67,3 +67,20 @@ select
 from public.answers a
 join public.sessions s on s.id = a.session_id
 group by s.user_id, a.category;
+
+-- Explicit Data API grants.
+--
+-- These make the migration work the same whether or not the project has
+-- "Automatically expose new tables" switched on. With it off, which is the
+-- safer setting Supabase itself recommends, nothing reaches the Data API
+-- unless it is granted here deliberately.
+--
+-- Only the authenticated role is granted. Anonymous visitors get nothing, and
+-- row level security still limits every authenticated user to their own rows.
+-- Nothing is granted on update: a finished session is a record of what
+-- happened and should not be edited afterwards.
+grant usage on schema public to authenticated;
+
+grant select, insert, delete on public.sessions to authenticated;
+grant select, insert            on public.answers  to authenticated;
+grant select                    on public.category_performance to authenticated;
