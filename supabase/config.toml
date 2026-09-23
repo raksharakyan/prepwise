@@ -1,0 +1,12 @@
+# Supabase project config.
+#
+# project_id must match this project's reference, the short string in the
+# dashboard URL: https://supabase.com/dashboard/project/<project_id>
+# The GitHub integration reads this file to know which project to deploy to.
+project_id = "REPLACE_WITH_PROJECT_REF"
+
+[functions.gemini]
+# The page calls this without a Supabase session, so the platform must not
+# reject the request before it reaches our code. Leave this false until sign in
+# exists, then flip it to true and drop the manual check in the function.
+verify_jwt = false
