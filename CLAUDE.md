@@ -120,6 +120,11 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
   #IITPatnaCapstone
   ```
 
+## Working Rules
+
+- **Do not read anything inside the `Ignore/` folder.** It is local scratch space, gitignored, and its contents are not part of the project. Do not open, search, summarize, or act on files there, even when a search would otherwise match them. If something in there is needed, the user will paste it directly.
+- Commit and push to the `dev` branch. `main` is reached only through a pull request.
+
 ## Style Notes
 
 - No em dashes anywhere in copy (docs, posts, UI text). Use commas, colons, or parentheses instead.
