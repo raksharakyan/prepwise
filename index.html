@@ -468,6 +468,7 @@ function esc(s) {
 $("btn-generate").addEventListener("click", async () => {
   setErr("err-gen", "");
   S.questions = [];
+  resetPositionBags();
   show("s-gen");
 
   const perBatch = 5;
@@ -481,7 +482,7 @@ $("btn-generate").addEventListener("click", async () => {
     const want = Math.min(perBatch, S.count - S.questions.length);
     try {
       const batch = await gemini(buildBatchPrompt(i, batches, want, hints[Math.min(i, hints.length - 1)]), 4096);
-      const clean = (Array.isArray(batch) ? batch : []).filter(validQ).slice(0, want);
+      const clean = (Array.isArray(batch) ? batch : []).filter(validQ).slice(0, want).map(placeCorrectAnswer);
       if (!clean.length) throw new Error("Batch " + (i + 1) + " came back empty.");
       S.questions = S.questions.concat(clean);
     } catch (e) {
@@ -526,8 +527,51 @@ function buildBatchPrompt(i, total, want, hint) {
     'This is batch ' + (i + 1) + ' of ' + total + '. Difficulty for this batch: ' + hint + '.\n' +
     'Write ' + want + ' questions. Do not repeat questions from earlier batches.\n\n' +
     speechLine + '\n\n' +
+    'Never write options such as "All of the above", "None of the above" or "Both A and B", and never refer to an option by its letter or position anywhere, including in the explanation. The options will be shown in a different order.\n\n' +
     'Return ONLY a raw JSON array, no markdown fences, no commentary. Each element:\n' +
     '{"question": the question text, "type": "mcq" or "speech", "options": array of exactly 4 short answer strings (empty array when type is speech), "correct_index": 0-based index of the right option (use -1 when type is speech), "explanation": for mcq why the right answer is right, for speech the key points a strong spoken answer must cover, "category": a short topic label such as "Arrays" or "Caching"}';
+}
+
+/* ---------------- answer placement ----------------
+   Language models put the right answer in the first couple of slots far more
+   often than chance, and tend to reuse one slot across a whole batch, which
+   produced long runs like 1 1 1 1 then 2 2 2 2. So the model's ordering is
+   discarded: the correct option's slot is dealt from a shuffled bag, so each
+   slot comes up equally often and long runs cannot form, and the wrong options
+   are shuffled into the remaining slots. */
+let positionBags = {};
+
+function resetPositionBags() { positionBags = {}; }
+
+function shuffleInPlace(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+function dealPosition(n) {
+  const bag = positionBags[n] || (positionBags[n] = []);
+  if (!bag.length) {
+    for (let i = 0; i < n; i++) bag.push(i);
+    shuffleInPlace(bag);
+  }
+  return bag.pop();
+}
+
+// Options whose meaning depends on where they sit. Moving these would make a
+// question wrong, so any question containing one keeps the model's order.
+const POSITIONAL_OPTION = /\b(all|none|both|neither)\s+of\s+(the\s+)?(above|these|them)\b|\bboth\s+[a-d]\b|\b[a-d]\s+(and|&)\s+[a-d]\b/i;
+
+function placeCorrectAnswer(q) {
+  if (q.type !== "mcq") return q;
+  if (q.options.some(o => POSITIONAL_OPTION.test(String(o)))) return q;
+  const right = q.options[q.correct_index];
+  const options = shuffleInPlace(q.options.filter((_, i) => i !== q.correct_index));
+  const pos = dealPosition(q.options.length);
+  options.splice(pos, 0, right);
+  return Object.assign({}, q, { options: options, correct_index: pos });
 }
 
 function validQ(q) {

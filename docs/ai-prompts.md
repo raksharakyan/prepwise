@@ -36,6 +36,10 @@ Write {COUNT} questions. Do not repeat questions from earlier batches.
 
 Exactly ONE question in this batch must have "type": "speech". The rest are "mcq".
 
+Never write options such as "All of the above", "None of the above" or "Both A and B",
+and never refer to an option by its letter or position anywhere, including in the
+explanation. The options will be shown in a different order.
+
 Return ONLY a raw JSON array, no markdown fences, no commentary. Each element:
 {"question": the question text, "type": "mcq" or "speech", "options": array of
 exactly 4 short answer strings (empty array when type is speech), "correct_index":
@@ -118,3 +122,16 @@ reasoning.
 Retry 429 and 5xx responses with exponential backoff, up to four attempts. Gemini
 returns transient 503s often enough that a single unretried batch failure will
 otherwise cut a 20 question session down to 5.
+
+## Answer placement
+
+The model's ordering of multiple choice options is thrown away. Left alone, it put the
+correct answer in the first or second slot far more often than chance, and reused one
+slot across a whole batch, giving runs like `1 1 1 1 1 1 1` then `2 2 2 2 2 2`.
+
+After generation, the client deals the correct option's slot from a shuffled bag of
+positions, so each slot is used equally often and the same slot never comes up more than
+twice in a row. The wrong options are shuffled into the remaining slots. Questions
+containing a position-dependent option such as "All of the above" keep the model's
+order, since moving those would make the question wrong. The prompt now forbids them,
+and forbids referring to options by letter, so explanations stay true after shuffling.
