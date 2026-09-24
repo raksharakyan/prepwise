@@ -2,6 +2,8 @@
 
 Your one-stop AI prep for technical interview rounds.
 
+**Live app:** https://prepwise--raksharakyan.replit.app
+
 Built for the IIT Patna Generative AI for Professionals Capstone Sprint.
 
 ## What it does

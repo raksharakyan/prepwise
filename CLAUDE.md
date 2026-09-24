@@ -100,7 +100,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 
 ## Deliverables Checklist
 
-- [ ] Working web app (hosted on Lovable/Replit/Bubble or similar)
+- [x] Working web app, live at https://prepwise--raksharakyan.replit.app (Replit static deployment, verified 2026-09-24 against the live Supabase backend)
 - [x] 1-Pager Idea Document (Problem, Solution, Features, Stack, Outcome)
 - [ ] Demo video (3 to 5 minutes, screen recording with voiceover)
 - [ ] Documentation / Notion page explaining system flow and learnings
