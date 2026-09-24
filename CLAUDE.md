@@ -134,6 +134,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 
 - **Do not read anything inside the `Ignore/` folder.** It is local scratch space, gitignored, and its contents are not part of the project. Do not open, search, summarize, or act on files there, even when a search would otherwise match them. If something in there is needed, the user will paste it directly.
 - Commit and push to the `dev` branch. `main` is reached only through a pull request.
+- **"FFD" means "add to the future feature doc."** When the user says FFD followed by an idea, add it as a new numbered entry at the bottom of `docs/future-features.md`. Use the same format as the other entries (status 💡 Idea, today's date, What, Why, Depends on), then commit and push to `dev`. Do not start building it.
 
 ## Style Notes
 
