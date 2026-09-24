@@ -77,7 +77,7 @@ Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 - **JD analysis prompt**: returns strict JSON `{round_type, level, reasoning, topics}` given the JD text, where level is Entry, Mid or Senior and sets how hard the questions get
 - **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
 - **Speech grading prompt**: given the question, the ideal answer/key points (from `explanation`), and the candidate's transcript, returns strict JSON `{score, feedback}`
-- **Debrief prompt**: given a compact summary string of per-question category/type/correct-or-score, returns strict JSON `{overall_readiness, strengths, focus_areas, tip}`
+- **Debrief prompt**: given a compact summary string of per-question category/type/correct-or-score, plus the weak categories (under 70 percent) computed by the app, returns strict JSON `{overall_readiness, strengths, focus_areas, tip}`. Focus areas may only name weak categories; with none, the section is hidden and the tip suggests the next level up
 
 All prompts request "ONLY a raw JSON object/array, no markdown fences, no commentary" and the client strips any stray code fences before `JSON.parse`.
 

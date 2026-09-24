@@ -103,12 +103,18 @@ finished a {ROUND_TYPE} practice session at {LEVEL} level.
 
 Focus topics for the role: {TOPICS}
 Per question results, formatted as category/type/outcome: {SUMMARY}
+This was a {N} question session{EARLY_READ}.
+Categories scored under 70 percent: {WEAK_CATEGORIES or "none"}
+
+Rules. "focus_areas" may only contain categories from that under 70 percent list, and must
+be an empty array when the list is none. Never name a topic the session did not test.
+"strengths" are categories they did well in, or an empty array if there are none.
+{TIP_RULE}
 
 Do not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no
 commentary:
 {"overall_readiness": two or three sentences on how ready they are for this round,
-"strengths": array of 2 to 3 short strings, "focus_areas": array of 2 to 3 short
-strings, "tip": one concrete thing to do before the next session}
+"strengths": array of short strings, "focus_areas": array of 0 to 3 short strings, "tip": one concrete thing to do before the next session}
 ```
 
 
@@ -151,3 +157,19 @@ twice in a row. The wrong options are shuffled into the remaining slots. Questio
 containing a position-dependent option such as "All of the above" keep the model's
 order, since moving those would make the question wrong. The prompt now forbids them,
 and forbids referring to options by letter, so explanations stay true after shuffling.
+
+## Grounding the debrief
+
+The app works out the weak categories itself, from the scores, and passes them in. Asked for
+"2 to 3 focus areas" with nothing to go on, the model invented weaknesses for a perfect score,
+including topics the session never tested.
+
+- A category is weak below 70 percent.
+- `{EARLY_READ}` is ", which is only an early read, so do not overstate conclusions" when the
+  session had fewer than 10 questions, and empty otherwise.
+- `{TIP_RULE}` asks for one concrete step for the weakest category when something was weak.
+  When nothing was, it asks for a stretch instead, naming the next level up (Entry to Mid,
+  Mid to Senior), or a longer session or different round type at Senior.
+- The app enforces this too. With no weak categories the Focus areas section is never shown,
+  whatever the model returns, and the last heading reads "Ready for more" instead of
+  "Do this next". With weak categories and an empty reply, the app lists them itself.

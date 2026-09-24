@@ -788,20 +788,44 @@ async function runDebrief() {
     r.category + "/" + r.type + "/" + (r.type === "speech" ? r.score + " of 100" : (r.correct ? "correct" : "wrong"))
   ).join("; ");
 
+  // Weak categories are worked out here, from the scores, and handed to the
+  // model. Asked for "2 to 3 focus areas" with nothing to go on, it invented
+  // weaknesses for a perfect score, including topics the session never tested.
+  const WEAK_BELOW = 70;
+  const pctOf = name => Math.round(cats[name].got / cats[name].total * 100);
+  const weak = Object.keys(cats).filter(n => pctOf(n) < WEAK_BELOW).sort((x, y) => pctOf(x) - pctOf(y));
+  const nextLevel = { Entry: "Mid", Mid: "Senior" }[S.level];
+  const n = S.results.length;
+
   try {
     const d = await gemini(
       'You are a technical interview coach writing a short debrief for a candidate who just finished a ' + S.roundType + ' practice session at ' + (S.level || "Mid") + ' level.\n\n' +
       'Focus topics for the role: ' + (S.analysis.topics.join(", ") || "general") + '\n' +
-      'Per question results, formatted as category/type/outcome: ' + summary + '\n\n' +
+      'Per question results, formatted as category/type/outcome: ' + summary + '\n' +
+      'This was a ' + n + ' question session' + (n < 10 ? ', which is only an early read, so do not overstate conclusions' : '') + '.\n' +
+      'Categories scored under ' + WEAK_BELOW + ' percent: ' + (weak.length ? weak.map(c => c + ' (' + pctOf(c) + '%)').join(", ") : "none") + '\n\n' +
+      'Rules. "focus_areas" may only contain categories from that under ' + WEAK_BELOW + ' percent list, and must be an empty array when the list is none. Never name a topic the session did not test. ' +
+      '"strengths" are categories they did well in, or an empty array if there are none. ' +
+      (weak.length
+        ? '"tip" is one concrete step for the weakest category.'
+        : '"tip" should stretch them, since nothing was weak' + (nextLevel
+            ? ', for example trying ' + nextLevel + ' level next.'
+            : ', for example a longer 20 question session or a different round type.')) + '\n\n' +
       'Do not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no commentary:\n' +
-      '{"overall_readiness": two or three sentences on how ready they are for this round, "strengths": array of 2 to 3 short strings, "focus_areas": array of 2 to 3 short strings, "tip": one concrete thing to do before the next session}',
+      '{"overall_readiness": two or three sentences on how ready they are for this round, "strengths": array of short strings, "focus_areas": array of 0 to 3 short strings, "tip": one concrete thing to do before the next session}',
       1024
     );
+    // The scores decide whether there are focus areas, not the model. With
+    // nothing weak the section is never shown, whatever came back; with weak
+    // categories and an empty reply, fall back to naming them directly.
+    const focus = weak.length
+      ? (Array.isArray(d.focus_areas) && d.focus_areas.length ? d.focus_areas : weak)
+      : [];
     $("d-readiness").textContent = d.overall_readiness || "";
     $("d-lists").innerHTML =
       listBlock("Strengths", d.strengths) +
-      listBlock("Focus areas", d.focus_areas) +
-      (d.tip ? '<h2 style="margin-top:20px">Do this next</h2><p class="muted">' + esc(d.tip) + '</p>' : "");
+      listBlock("Focus areas", focus) +
+      (d.tip ? '<h2 style="margin-top:20px">' + (weak.length ? "Do this next" : "Ready for more") + '</h2><p class="muted">' + esc(d.tip) + '</p>' : "");
   } catch (e) {
     $("d-readiness").textContent = "The AI debrief could not be generated: " + e.message + " Your category breakdown above is still accurate.";
   }
