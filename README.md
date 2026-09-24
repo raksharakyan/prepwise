@@ -2,6 +2,8 @@
 
 Your one-stop AI prep for technical interview rounds.
 
+**Live app:** https://prepwise--raksharakyan.replit.app
+
 Built for the IIT Patna Generative AI for Professionals Capstone Sprint.
 
 ## What it does
@@ -41,8 +43,15 @@ Working single-file prototype exists. Current focus is swapping the AI provider 
 
 ## Setup
 
-Copy `config.example.js` to `config.js` and add a Gemini API key from
-[Google AI Studio](https://aistudio.google.com/apikey), then open `index.html`.
+Copy `config.example.js` to `config.js` and fill in your Supabase URL and publishable key,
+then serve the folder with any static server and open `index.html`:
+
+```bash
+python3 -m http.server 8000
+```
+
+No build step. The app is four files that deploy together: `index.html`, `styles.css`,
+`app.js`, and your `config.js`.
 
 `config.js` is gitignored and must never be committed.
 
@@ -61,6 +70,12 @@ in `docs/lovable-build-prompt.md` covers it.
 ## Repo layout
 
 ```
-assets/    1-pager, infographic, and other build-in-public material
-docs/      system flow notes and learnings
+index.html     page markup
+styles.css     all styles
+app.js         all app logic: AI calls, battle, speech input, debrief
+config.js      Supabase URL and publishable key (gitignored, copy from config.example.js)
+supabase/      Edge Function that holds the Gemini key, and the database schema
+postman/       collection that tests the live backend
+docs/          prompts, setup guides, learnings, post drafts
+assets/        1-pager and infographics
 ```

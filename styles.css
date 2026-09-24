@@ -1,0 +1,99 @@
+/* Prepwise styles. Dark theme, tokens at the top, then one section per screen. */
+
+:root {
+  --bg: #0b0d17;
+  --panel: #141829;
+  --panel-2: #1c2138;
+  --line: #2a3050;
+  --text: #e8eaf6;
+  --muted: #8f97bd;
+  --accent: #7c5cff;
+  --accent-2: #00d4b8;
+  --danger: #ff4d6d;
+  --warn: #ffb020;
+  --ok: #35d07f;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+.wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.4px; }
+h2 { font-size: 20px; margin: 0 0 12px; }
+.tag {
+  display: inline-block; font-size: 11px; letter-spacing: 1.4px;
+  text-transform: uppercase; color: var(--accent-2); margin-bottom: 18px;
+}
+.sub { color: var(--muted); margin: 0 0 24px; }
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 14px; padding: 22px; margin-bottom: 18px;
+}
+label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+textarea, input[type=text], input[type=password] {
+  width: 100%; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+  font: inherit; resize: vertical;
+}
+textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+button {
+  background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+  padding: 12px 20px; font: inherit; font-weight: 600; cursor: pointer;
+}
+button:hover:not(:disabled) { filter: brightness(1.12); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+button.ghost.on { border-color: var(--accent); background: rgba(124,92,255,.16); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); font-size: 13px; }
+.err { color: var(--danger); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+
+/* battle */
+.hp-row { display: flex; gap: 16px; margin-bottom: 20px; }
+.hp-box { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.hp-name { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.hp-bar { height: 12px; background: var(--panel-2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+.hp-fill { height: 100%; border-radius: 99px; transition: width .45s ease; }
+.hp-you .hp-fill { background: linear-gradient(90deg, var(--accent-2), var(--ok)); }
+.hp-boss .hp-fill { background: linear-gradient(90deg, var(--warn), var(--danger)); }
+.hp-num { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+.qmeta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; }
+.qtext { font-size: 18px; font-weight: 600; margin-bottom: 18px; }
+.opt {
+  display: block; width: 100%; text-align: left; background: var(--panel-2);
+  border: 1px solid var(--line); color: var(--text); border-radius: 10px;
+  padding: 13px 16px; margin-bottom: 9px; cursor: pointer; font: inherit;
+}
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt.right { border-color: var(--ok); background: rgba(53,208,127,.14); }
+.opt.wrong { border-color: var(--danger); background: rgba(255,77,109,.14); }
+.fb { border-left: 3px solid var(--accent); padding: 12px 16px; background: var(--panel-2); border-radius: 0 10px 10px 0; margin-top: 16px; }
+.fb h3 { margin: 0 0 6px; font-size: 15px; }
+
+/* display:block matters: these are spans in the debrief, and an inline
+   box ignores height, which left every category bar invisible. */
+.bar-track { display: block; height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
+
+.cat-row { display: grid; grid-template-columns: 1fr 90px 46px; gap: 10px; align-items: center; margin-bottom: 10px; font-size: 14px; }
+ul { margin: 8px 0 0; padding-left: 20px; }
+li { margin-bottom: 5px; }
+.mic-on { background: var(--danger); }
+.reveal { margin-top: 16px; border: 1px solid var(--accent-2); background: rgba(0,212,184,.08); border-radius: 10px; padding: 12px 16px; }
+.reveal h3 { margin: 0 0 6px; font-size: 15px; color: var(--accent-2); }
+.reveal p { margin: 0; }
+.note { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+.shake { animation: shake .32s; }
+
+/* example job description buttons on the setup screen */
+.examples { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.examples .muted { margin-right: 4px; }
+button.chip { padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 99px; }

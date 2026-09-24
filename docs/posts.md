@@ -44,11 +44,43 @@ Next up is moving it to Lovable and adding Supabase so your sessions are saved. 
 
 #IITPatnaCapstone #GenerativeAI #InterviewPrep #BuildInPublic
 
-## Post 3, Week 3 (outline)
+## Post 3, Week 3 (final, public version)
 
-Theme: integration and UI. Cover the Lovable rebuild, connecting Supabase, moving the
-Gemini key into an Edge Function so it is not sitting in the browser, and session
-history with progress over time. Include a screen recording of a live session.
+Image: `assets/prepwise-launch.png`
+
+Framed as a GenAI engineering project for recruiters and developers. It deliberately carries
+no course branding and no #IITPatnaCapstone tag, so it may not count toward the capstone's
+tagged post requirement on its own.
+
+I built an AI interview coach, and it's live. I'd love for you to try to break it. 🚀
+
+👉 https://prepwise--raksharakyan.replit.app
+
+Prepwise reads a job description, works out whether the round will lean DSA, system design or both, and builds a question set pitched at the role's level. Some questions you answer out loud, and an LLM grades what you said against what a strong answer should cover. You finish with a debrief on where you stand.
+
+Try it in five minutes: pick an example job description, keep the 5 question demo, and answer at least one question out loud 🎙️
+
+The interesting part was making an LLM behave inside a real product:
+🧩 Four chained LLM calls (analysis, generation, grading, debrief), each returning strict JSON the app validates
+📈 Difficulty calibrated to seniority, so an intern role gets intern questions
+🎯 Grounded output: the debrief can only name weak areas your scores actually show
+🎲 De-biasing: LLMs put the right answer in the first two options far too often, so the app places it itself
+🔁 Retries and timeouts for a model that returns 503s under load
+🔐 The API key lives in a Supabase Edge Function, never in the browser
+🧪 A Postman suite that runs the whole pipeline end to end with structural checks
+
+Favourite bug: I scored 100% in every category and my own app still told me I had three weak areas, two of which it had never even tested. 😅 The fix was to stop asking the model what's weak and compute it from the scores instead.
+
+I'd really value feedback, especially from anyone who hires or interviews engineers:
+❓ Did the questions feel like the right difficulty?
+❓ Did the spoken answer grading feel fair?
+❓ What would make you trust a tool like this before a real interview?
+
+Voice works best in Chrome or Edge. It runs on a free AI tier, so if it says Gemini is busy, give it a minute 🙂
+
+🛠️ Stack: Gemini API · Web Speech API · Supabase Edge Functions · Postman · Replit
+
+#GenerativeAI #LLM #AIEngineering #PromptEngineering #BuildInPublic
 
 ## Post 4, Week 4 (outline)
 

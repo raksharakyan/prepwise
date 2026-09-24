@@ -23,7 +23,9 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 ## Features to Build
 
 - [x] JD input (paste text or upload a .txt file), with AI-driven round-type detection and topic extraction; user can override the suggested round type
-- [x] Batched adaptive question generation (20 or 30 total questions), scaling from fundamentals to harder edge cases across batches
+- [x] Example job descriptions on the setup screen, three beginner roles (coding intern, junior web developer, IT support trainee), so anyone can try the app without finding one
+- [x] Difficulty follows the role's level: the analysis detects Entry, Mid or Senior, the user can override it, and each level climbs its own difficulty ladder; grading and the debrief judge against the level
+- [x] Batched adaptive question generation (20 or 30 total questions, or 5 as a quick demo), scaling up in difficulty across batches. The 5 question demo is a single batch, about 4 Gemini requests end to end instead of about 10, and always includes one spoken question
 - [x] Two question types: multiple-choice (instant client-side scoring) and speech-answered (via browser voice input, with a manual typed fallback for unsupported browsers)
 - [x] AI grading of spoken answers (0 to 100 score plus written feedback)
 - [x] Redo and Show Correct Answer on spoken questions: the first attempt is the scored one and alone moves HP and the debrief; up to two redos are graded as practice only; the reference answer can be revealed any time and is revealed automatically once the last redo is graded
@@ -39,7 +41,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 
 ## Existing Prototype
 
-A working single-file HTML/JS prototype lives at `index.html`, implementing the full flow above and verified end to end against the live Gemini API:
+The app is plain HTML, CSS and JavaScript with no build step, implementing the full flow above and verified end to end against the live Gemini API. It is three files plus a config: `index.html` holds the markup, `styles.css` the styles, and `app.js` all the logic. `config.js` (gitignored) holds the Supabase URL and publishable key, and must load before `app.js`. All four are deployed together as a Replit static site:
 
 - JD paste/upload screen, then an AI-analysis screen showing detected round type + topics with override buttons and question-count/speech toggles
 - Batched quiz generation: calls the LLM in batches of 5 questions at a time (to fit small max-token responses), building up to the full 20 or 30 question set with a live progress bar
@@ -72,10 +74,10 @@ arrives with session history since `sessions.user_id` needs a real user anyway.
 
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 
-- **JD analysis prompt**: returns strict JSON `{round_type, reasoning, topics}` given the JD text
+- **JD analysis prompt**: returns strict JSON `{round_type, level, reasoning, topics}` given the JD text, where level is Entry, Mid or Senior and sets how hard the questions get
 - **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
 - **Speech grading prompt**: given the question, the ideal answer/key points (from `explanation`), and the candidate's transcript, returns strict JSON `{score, feedback}`
-- **Debrief prompt**: given a compact summary string of per-question category/type/correct-or-score, returns strict JSON `{overall_readiness, strengths, focus_areas, tip}`
+- **Debrief prompt**: given a compact summary string of per-question category/type/correct-or-score, plus the weak categories (under 70 percent) computed by the app, returns strict JSON `{overall_readiness, strengths, focus_areas, tip}`. Focus areas may only name weak categories; with none, the section is hidden and the tip suggests the next level up
 
 All prompts request "ONLY a raw JSON object/array, no markdown fences, no commentary" and the client strips any stray code fences before `JSON.parse`.
 
@@ -87,7 +89,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
 | Frontend | Replit (Lovable was intended, access never arrived) | Hosting the working HTML/JS prototype as a public web app |
 | Backend / Data | Supabase | Storing session history, quiz results, and progress over time |
-| Testing | Postman | Validating AI API calls (JD analysis, question generation, grading) before wiring into the UI |
+| Testing | Postman | Collection in `postman/` that tests the live backend: a free security check that unauthenticated calls are refused, then the four AI calls chained the way the app runs them, each with structural assertions |
 
 ## 4-Week Sprint Timeline
 
@@ -96,11 +98,11 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | Week 1 | Ideation and Planning | Finalize project idea and submit 1-pager | 1-Page Idea Doc + Public Post #1 | Sept 5 |
 | Week 2 | Core Build | Develop AI logic and data flow | Working prototype + Post #2 | Sept 12 |
 | Week 3 | Integration and UI | Build frontend and connect to database | Functional web app + Post #3 | Sept 19 |
-| Week 4 | Testing and Showcase | Finalize, polish, record demo | Demo Video + Documentation + Post #4 | Sept 26 |
+| Week 4 | Testing and Showcase | Finalize, polish, record demo | Demo Video + Documentation + Post #4 | Sun Sept 27 (extended from Sept 26) |
 
 ## Deliverables Checklist
 
-- [ ] Working web app (hosted on Lovable/Replit/Bubble or similar)
+- [x] Working web app, live at https://prepwise--raksharakyan.replit.app (Replit static deployment, verified 2026-09-24 against the live Supabase backend)
 - [x] 1-Pager Idea Document (Problem, Solution, Features, Stack, Outcome)
 - [ ] Demo video (3 to 5 minutes, screen recording with voiceover)
 - [ ] Documentation / Notion page explaining system flow and learnings
