@@ -44,11 +44,43 @@ Next up is moving it to Lovable and adding Supabase so your sessions are saved. 
 
 #IITPatnaCapstone #GenerativeAI #InterviewPrep #BuildInPublic
 
-## Post 3, Week 3 (outline)
+## Post 3, Week 3 (final)
 
-Theme: integration and UI. Cover the Lovable rebuild, connecting Supabase, moving the
-Gemini key into an Edge Function so it is not sitting in the browser, and session
-history with progress over time. Include a screen recording of a live session.
+Prepwise is live, and I'd love for you to try to break it. 🚀
+
+👉 Try it here: https://prepwise--raksharakyan.replit.app
+
+Prepwise is my one-stop AI prep tool for technical interview rounds, built for the IIT Patna Capstone Sprint. Paste a job description and it works out what the round will focus on, builds a question set around it, lets you answer some questions out loud, and scores you in a boss battle against The Interviewer. Then it tells you where you stand.
+
+You can try it in about five minutes:
+1️⃣ Pick an example job description, no need to find your own
+2️⃣ Keep the 5 question quick demo
+3️⃣ Answer at least one question out loud 🎙️
+4️⃣ Read your debrief
+
+What changed since last week:
+🔐 The AI key now lives on a Supabase server, never in your browser
+📈 Questions match the role's level, so an intern role gets intern questions
+🔁 You can redo spoken answers to practise, and only your first try counts
+🎯 The debrief is grounded in your actual scores
+
+Favourite bug this week: I scored 100% in every category, and my own app still told me I had three weak areas, two of which it had never even tested. 😅 Now the app decides what counts as weak, and if nothing is, it tells you to level up instead.
+
+I'd really value your feedback:
+❓ Did the questions feel like the right difficulty?
+❓ Did answering out loud work, and did the grading feel fair?
+❓ What would make you use this before a real interview?
+
+Drop a comment or DM me. Voice works best in Chrome or Edge. If it says Gemini is busy, give it a minute, it runs on a free tier 🙂
+
+🧠 Built with:
+🤖 Google AI Studio (Gemini)
+🎙️ Web Speech API
+🗄️ Supabase
+🧪 Postman
+🚀 Replit
+
+#IITPatnaCapstone #GenerativeAI #InterviewPrep #BuildInPublic
 
 ## Post 4, Week 4 (outline)
 
