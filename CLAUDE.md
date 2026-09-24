@@ -23,6 +23,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 ## Features to Build
 
 - [x] JD input (paste text or upload a .txt file), with AI-driven round-type detection and topic extraction; user can override the suggested round type
+- [x] Example job descriptions on the setup screen, one per track (early career engineer, senior backend engineer, Unity mobile game developer), so anyone can try the app without finding one; verified to classify as Technical/DSA, System Design and Mixed respectively
 - [x] Batched adaptive question generation (20 or 30 total questions), scaling from fundamentals to harder edge cases across batches
 - [x] Two question types: multiple-choice (instant client-side scoring) and speech-answered (via browser voice input, with a manual typed fallback for unsupported browsers)
 - [x] AI grading of spoken answers (0 to 100 score plus written feedback)

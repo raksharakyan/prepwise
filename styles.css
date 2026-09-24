@@ -92,3 +92,8 @@ li { margin-bottom: 5px; }
 .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
 .shake { animation: shake .32s; }
+
+/* example job description buttons on the setup screen */
+.examples { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.examples .muted { margin-right: 4px; }
+button.chip { padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 99px; }

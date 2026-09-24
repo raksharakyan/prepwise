@@ -156,6 +156,61 @@ if (!useProxy() && !S.key) {
   $("btn-analyze").disabled = true;
 }
 
+/* ---------------- example job descriptions ----------------
+   So anyone can try Prepwise without hunting for a job description. One per
+   track, so trying all three also shows the round detection choosing a
+   different answer each time. Filling the box does not start an analysis:
+   that still takes a click, since each one spends a Gemini request. */
+const EXAMPLE_JDS = {
+  dsa: `Software Engineer, Early Career
+
+You will write and ship production code on a small product team, working through well scoped features with support from senior engineers.
+
+What we look for:
+- Strong fundamentals in data structures and algorithms: arrays, strings, hash maps, stacks, queues, trees and graphs
+- Comfortable analyzing time and space complexity and choosing the right approach
+- Fluent in at least one of Python, Java, C++ or JavaScript
+- Able to break a problem down, write clean code, and test edge cases
+
+Our interview process includes two live coding rounds focused on problem solving.`,
+
+  design: `Senior Backend Engineer, Platform
+
+You will design and run the services behind a product used by millions of people, owning reliability, performance and scale.
+
+What we look for:
+- Experience designing distributed systems: service boundaries, APIs, and data flow between services
+- Caching strategy, message queues such as Kafka, and relational databases at scale
+- Sharding, replication, and the trade offs between consistency and availability
+- Capacity planning, failure handling, and observability in production
+- 5+ years building backend services in Go, Java or Python`,
+
+  mixed: `Mobile Game Developer, Unity
+
+You will build and optimize gameplay systems for a live mobile game on iOS and Android.
+
+What we look for:
+- Strong C# and Unity3D, with a good grasp of game architecture and design patterns
+- Profiling and optimizing frame rate, memory and garbage collection on mobile devices
+- Solid data structures and algorithms for gameplay code
+- Designing scalable game systems and backend integration for live features
+- 3+ years shipping mobile games`
+};
+
+document.querySelectorAll("[data-example]").forEach(b => b.addEventListener("click", () => {
+  const box = $("jd");
+  const current = box.value.trim();
+  const isExample = Object.values(EXAMPLE_JDS).some(t => t.trim() === current);
+  // Never silently throw away something the user typed or pasted.
+  if (current && !isExample && !confirm("Replace the job description you entered with this example?")) return;
+  box.value = EXAMPLE_JDS[b.dataset.example];
+  box.scrollTop = 0;
+  // Clear a stale "paste a fuller job description" message, but keep the
+  // "no AI backend configured" one, which explains why Analyze is disabled.
+  if (useProxy() || S.key) setErr("err-setup", "");
+  $("btn-analyze").focus();
+}));
+
 $("file").addEventListener("change", e => {
   const f = e.target.files[0];
   if (!f) return;

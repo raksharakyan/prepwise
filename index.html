@@ -18,6 +18,12 @@
     <div class="card">
       <label for="jd">Job description</label>
       <textarea id="jd" rows="11" placeholder="Paste the full job description here"></textarea>
+      <div class="examples">
+        <span class="muted">No job description handy? Try one:</span>
+        <button class="ghost chip" data-example="dsa">Early career engineer</button>
+        <button class="ghost chip" data-example="design">Senior backend engineer</button>
+        <button class="ghost chip" data-example="mixed">Unity mobile game developer</button>
+      </div>
       <div class="row" style="margin-top:12px">
         <input type="file" id="file" accept=".txt" class="hidden">
         <button class="ghost" onclick="document.getElementById('file').click()">Upload a .txt file</button>
