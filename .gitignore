@@ -1,7 +1,11 @@
-# Secrets
+# Secrets, never commit these
 .env
 .env.*
 !.env.example
+config.js
+
+# Local scratch space, anything in here stays on this machine
+Ignore/
 
 # Dependencies
 node_modules/
@@ -10,9 +14,12 @@ node_modules/
 dist/
 build/
 
+# Editor and tooling
+.claude/
+.vscode/
+.idea/
+
 # OS
 .DS_Store
-.claude/
-
-# Local API key, never commit
-config.js
+._*
+Thumbs.db

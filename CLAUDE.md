@@ -30,8 +30,9 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [x] AI-generated debrief screen with category breakdown and strengths/focus areas/tip
 - [x] Swap AI provider from Claude API (only free inside Claude.ai artifacts) to Google AI Studio's Gemini API using a real free-tier API key, so the app works once deployed outside Claude.ai
 - [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
-- [ ] Supabase integration: persist session history, quiz results, and progress over time so users can track readiness across multiple sessions
-- [ ] Rebuild/port the working HTML/JS prototype into Lovable (or Bubble/Replit as fallback) for a more polished, deployable app
+- [x] Supabase Edge Function holding the Gemini key server side, so the app can be deployed without exposing it
+- [ ] Supabase integration: persist session history, quiz results, and progress over time so users can track readiness across multiple sessions (schema and row level security are deployed, the app does not write to them yet)
+- [ ] Rebuild the prototype in Lovable for a more polished app (deferred: course access never arrived, shipping on Replit instead; spec kept in `docs/lovable-build-prompt.md`)
 - [ ] Adaptive follow-up sessions: use the debrief's category breakdown to generate the next question set against the user's weak areas only, skipping what they have already proven and raising difficulty as those areas improve (depends on Supabase session history)
 - [ ] Optional: expand beyond technical/system-design rounds to behavioral prep
 
@@ -58,9 +59,15 @@ Three things that broke during the swap, documented in `docs/ai-prompts.md`:
 - Transient 503s from Gemini are common enough that an unretried batch failure silently cut a
   20 question session down to 5. Retry 429 and 5xx with exponential backoff.
 
-**Remaining limitation:** the Gemini key is entered by the user and held in the browser. Before
-deploying with your own key, move the call into a Supabase Edge Function so the key stays
-server-side. Prompt 2 in `docs/lovable-build-prompt.md` covers this.
+**The key is now server side.** As of 2026-09-24 the app calls a Supabase Edge Function named
+`gemini`, which holds `GEMINI_API_KEY` as a project secret and proxies to Google. No browser ever
+sees the key. Verified end to end: the function reaches Gemini, the page calls it cross origin,
+and the response parses. Setup steps are in `docs/supabase-setup.md`.
+
+**Remaining limitation:** the function has no authentication of its own beyond requiring a valid
+Supabase publishable key, which ships in the page. Anyone who reads it can call the function and
+spend the Gemini quota. Closing this means checking for a signed in user inside the function, which
+arrives with session history since `sessions.user_id` needs a real user anyway.
 
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 
@@ -77,7 +84,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | --- | --- | --- |
 | LLM / AI | Google AI Studio, Gemini API | JD analysis, adaptive question generation, grading of spoken answers |
 | Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
-| Frontend | Lovable (fallback: Bubble or Replit) | Turning the working HTML/JS prototype into a polished, deployable app |
+| Frontend | Replit (Lovable was intended, access never arrived) | Hosting the working HTML/JS prototype as a public web app |
 | Backend / Data | Supabase | Storing session history, quiz results, and progress over time |
 | Testing | Postman | Validating AI API calls (JD analysis, question generation, grading) before wiring into the UI |
 
@@ -119,6 +126,11 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 
   #IITPatnaCapstone
   ```
+
+## Working Rules
+
+- **Do not read anything inside the `Ignore/` folder.** It is local scratch space, gitignored, and its contents are not part of the project. Do not open, search, summarize, or act on files there, even when a search would otherwise match them. If something in there is needed, the user will paste it directly.
+- Commit and push to the `dev` branch. `main` is reached only through a pull request.
 
 ## Style Notes
 

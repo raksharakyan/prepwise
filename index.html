@@ -266,23 +266,44 @@ async function gemini(prompt, maxTokens, attempt) {
   }
 }
 
+// Two ways to reach Gemini. Through the Supabase Edge Function when one is
+// configured, which is the only arrangement where the API key never reaches a
+// browser, or straight to Google with a local key for development. The function
+// returns Gemini's response body verbatim, so everything below this is identical
+// either way.
+function useProxy() {
+  return !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
+}
+
 async function geminiOnce(prompt, maxTokens) {
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL +
-              ":generateContent?key=" + encodeURIComponent(S.key);
+  const viaProxy = useProxy();
+
+  const url = viaProxy
+    ? CFG.SUPABASE_URL.replace(/\/+$/, "") + "/functions/v1/gemini"
+    : "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL +
+      ":generateContent?key=" + encodeURIComponent(S.key);
+
+  const headers = { "Content-Type": "application/json" };
+  if (viaProxy) headers["Authorization"] = "Bearer " + CFG.SUPABASE_ANON_KEY;
+
+  const payload = viaProxy
+    ? { prompt: prompt, maxOutputTokens: maxTokens || 2048 }
+    : {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: maxTokens || 2048,
+          responseMimeType: "application/json",
+          // Gemini 3.x models think by default and those tokens count against
+          // maxOutputTokens, which truncates the reply before any JSON is written.
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      };
+
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: maxTokens || 2048,
-        responseMimeType: "application/json",
-        // Gemini 3.x models think by default and those tokens count against
-        // maxOutputTokens, which truncates the reply before any JSON is written.
-        thinkingConfig: { thinkingBudget: 0 }
-      }
-    })
+    headers: headers,
+    body: JSON.stringify(payload)
   });
 
   if (!res.ok) {
@@ -321,10 +342,11 @@ async function geminiOnce(prompt, maxTokens) {
 // The key comes from config.js, which is gitignored and never committed.
 // It is deliberately not entered through the interface and not persisted
 // to localStorage. See the deployment note in README.md.
-S.key = (window.PREPWISE_CONFIG && window.PREPWISE_CONFIG.GEMINI_API_KEY || "").trim();
-if (!S.key) {
+const CFG = window.PREPWISE_CONFIG || {};
+S.key = (CFG.GEMINI_API_KEY || "").trim();
+if (!useProxy() && !S.key) {
   setErr("err-setup",
-    "No Gemini API key configured.\n\nCopy config.example.js to config.js and add your key from aistudio.google.com/apikey, then reload this page.");
+    "No AI backend configured.\n\nEither set SUPABASE_URL and SUPABASE_ANON_KEY in config.js to call through the Edge Function, or set GEMINI_API_KEY for a direct local call. Copy config.example.js to config.js to start.");
   $("btn-analyze").disabled = true;
 }
 
@@ -339,7 +361,7 @@ $("file").addEventListener("change", e => {
 $("btn-analyze").addEventListener("click", async () => {
   setErr("err-setup", "");
   S.jd = $("jd").value.trim();
-  if (!S.key) return setErr("err-setup", "No Gemini API key configured. Add one to config.js and reload.");
+  if (!useProxy() && !S.key) return setErr("err-setup", "No AI backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY, or GEMINI_API_KEY, in config.js and reload.");
   if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
 
   const btn = $("btn-analyze");
