@@ -32,7 +32,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
 - [x] Supabase Edge Function holding the Gemini key server side, so the app can be deployed without exposing it
 - [ ] Supabase integration: persist session history, quiz results, and progress over time so users can track readiness across multiple sessions (schema and row level security are deployed, the app does not write to them yet)
-- [ ] Rebuild/port the working HTML/JS prototype into Lovable (or Bubble/Replit as fallback) for a more polished, deployable app
+- [ ] Rebuild the prototype in Lovable for a more polished app (deferred: course access never arrived, shipping on Replit instead; spec kept in `docs/lovable-build-prompt.md`)
 - [ ] Adaptive follow-up sessions: use the debrief's category breakdown to generate the next question set against the user's weak areas only, skipping what they have already proven and raising difficulty as those areas improve (depends on Supabase session history)
 - [ ] Optional: expand beyond technical/system-design rounds to behavioral prep
 
@@ -84,7 +84,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | --- | --- | --- |
 | LLM / AI | Google AI Studio, Gemini API | JD analysis, adaptive question generation, grading of spoken answers |
 | Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
-| Frontend | Lovable (fallback: Bubble or Replit) | Turning the working HTML/JS prototype into a polished, deployable app |
+| Frontend | Replit (Lovable was intended, access never arrived) | Hosting the working HTML/JS prototype as a public web app |
 | Backend / Data | Supabase | Storing session history, quiz results, and progress over time |
 | Testing | Postman | Validating AI API calls (JD analysis, question generation, grading) before wiring into the UI |
 
