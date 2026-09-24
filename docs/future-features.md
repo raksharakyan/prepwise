@@ -53,3 +53,24 @@ Each entry has what it is, why it matters, and anything it depends on. Once a fe
 - **What:** Rebuild the frontend in Lovable for a more polished UI.
 - **Why:** This was the original plan. It was deferred because course access never arrived.
 - **Depends on:** Lovable access. The spec is in `docs/lovable-build-prompt.md`.
+
+## 7. Baseline level from current company and salary
+**Status:** 💡 Idea · **Added:** 2026-09-25
+
+- **What:** Ask for the user's current company and salary, and use them to set a baseline difficulty that the job description then adjusts.
+- **Why:** The job description tells us about the role, but not where the candidate is starting from. A mid-level engineer applying for a senior role needs a different ladder from a new grad applying for the same role.
+- **Depends on:** Nothing. Salary is sensitive, so make both fields optional, send only a derived level (Entry, Mid or Senior) to Gemini rather than the raw figure, and store nothing without sign in (#4).
+
+## 8. Company specific questions from real interview reports
+**Status:** 💡 Idea · **Added:** 2026-09-25
+
+- **What:** Ask which company the user is interviewing with. Pull interview questions that past candidates reported for that company and role through an Apify connector (sources like Glassdoor and LinkedIn), and mix them into the question set.
+- **Why:** Real questions from a company's own loop are the most targeted prep possible.
+- **Depends on:** An Apify account and a server side function to run the scrapes and cache the results, because the Apify token must stay out of the browser, the same way the Gemini key does. Check each site's terms of service first: Glassdoor and LinkedIn both restrict scraping. A permitted source or an official API may be needed instead.
+
+## 9. Coding editor for coding rounds
+**Status:** 💡 Idea · **Added:** 2026-09-25
+
+- **What:** Add a third question type: a coding problem with an in-browser editor (for example Monaco), language selection, and hidden test cases. Gemini reviews the code for correctness, complexity and style.
+- **Why:** DSA rounds are usually about writing code, not picking an answer from a list.
+- **Depends on:** A safe way to run the code, either a sandboxed runner such as Judge0 or in-browser runtimes like Pyodide for Python. Gemini-only review works as a first step.
