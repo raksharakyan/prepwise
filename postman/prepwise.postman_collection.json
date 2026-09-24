@@ -1,0 +1,375 @@
+{
+  "info": {
+    "name": "Prepwise AI backend",
+    "description": "Tests the Prepwise Supabase Edge Function, which proxies to Google Gemini.\n\nRun the folder in order. Each request feeds the next the way the app does: the job description analysis supplies the round type and topics for question generation, and the generated spoken question is what gets graded.\n\nA full run costs 4 Gemini requests. The free tier allows roughly 20 a day, so do not run it in a loop. The first request is free: it checks the backend rejects calls without a key.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://hvseavmnyhwybklmqvvc.supabase.co"
+    },
+    {
+      "key": "publishableKey",
+      "value": "sb_publishable_xV80XXUPcg7_ryvrlJEDkw_q2j9SDxb",
+      "description": "Supabase publishable key. Public by design. The Gemini key is NOT here, it is a server side secret."
+    },
+    {
+      "key": "candidate_transcript",
+      "value": "so value types hold their data directly on the stack and reference types hold a pointer to data on the heap. boxing is when you wrap a value type in an object so it gets copied onto the heap, and on mobile that creates garbage the collector has to clean up, which can cause frame hitches"
+    },
+    {
+      "key": "round_type",
+      "value": ""
+    },
+    {
+      "key": "topics",
+      "value": ""
+    },
+    {
+      "key": "speech_question",
+      "value": ""
+    },
+    {
+      "key": "speech_key_points",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Security: rejects calls without a key",
+      "request": {
+        "description": "Sends no Authorization header. Must be refused by Supabase before any Gemini call is made, so it costs no quota.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/gemini",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "gemini"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"prompt\": \"Return ONLY raw JSON: {\\\"ok\\\":true}\",\n  \"maxOutputTokens\": 50\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Rejected without a key (401)\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Does not reach Gemini\", () => pm.expect(pm.response.text()).to.not.include(\"candidates\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Job description analysis",
+      "request": {
+        "description": "Classifies the round and extracts focus topics. Saves round_type and topics for the next requests.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/gemini",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "gemini"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"prompt\": \"You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\\n\\nReturn ONLY a raw JSON object, no markdown fences, no commentary, with exactly these keys:\\n{\\\"round_type\\\": one of \\\"Technical/DSA\\\" or \\\"System Design\\\" or \\\"Mixed\\\", \\\"reasoning\\\": one or two sentences explaining the call, \\\"topics\\\": an array of 4 to 7 specific technical topics to focus on}\\n\\nJOB DESCRIPTION:\\nSenior Unity engineer building mobile games in C#. Profile and optimize performance, memory usage and garbage collection across iOS and Android. Design scalable core game systems, own features end to end, and review code. 6+ years of game development, strong C# and Unity3D, mobile optimization experience.\",\n  \"maxOutputTokens\": 1024\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Gemini returned a candidate\", () => {",
+              "  pm.expect(body.candidates, \"no candidates, raw response: \" + pm.response.text().slice(0, 200)).to.be.an(\"array\").that.is.not.empty;",
+              "});",
+              "const raw = (body.candidates || [{}])[0].content?.parts?.map(p => p.text || \"\").join(\"\") || \"\";",
+              "const text = raw.replace(/^\\s*```(?:json)?/i, \"\").replace(/```\\s*$/, \"\").trim();",
+              "let data;",
+              "pm.test(\"Reply is valid JSON with no commentary\", () => { data = JSON.parse(text); });",
+              "// JSON-escape a value so it can be dropped inside a later request body.",
+              "const esc = v => JSON.stringify(String(v)).slice(1, -1);",
+              "",
+              "pm.test(\"round_type is one of the three tracks\", () => {",
+              "  pm.expect([\"Technical/DSA\", \"System Design\", \"Mixed\"]).to.include(data.round_type);",
+              "});",
+              "pm.test(\"reasoning is present\", () => pm.expect(data.reasoning).to.be.a(\"string\").and.not.empty);",
+              "pm.test(\"4 to 7 focus topics\", () => {",
+              "  pm.expect(data.topics).to.be.an(\"array\");",
+              "  pm.expect(data.topics.length).to.be.within(4, 7);",
+              "});",
+              "// Feed the next request, the same way the app chains these calls.",
+              "pm.collectionVariables.set(\"round_type\", esc(data.round_type));",
+              "pm.collectionVariables.set(\"topics\", esc(data.topics.join(\", \")));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Question batch generation",
+      "request": {
+        "description": "Generates one batch of 5 questions from the analysis. Checks structure, the single spoken question, and that no option depends on its position.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/gemini",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "gemini"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"prompt\": \"You are an expert technical interviewer writing questions for a {{round_type}} interview round.\\n\\nFocus topics: {{topics}}\\nThis is batch 1 of 4. Difficulty for this batch: fundamentals and warm up.\\nWrite 5 questions. Do not repeat questions from earlier batches.\\n\\nExactly ONE question in this batch must have \\\"type\\\": \\\"speech\\\". The rest are \\\"mcq\\\".\\n\\nNever write options such as \\\"All of the above\\\", \\\"None of the above\\\" or \\\"Both A and B\\\", and never refer to an option by its letter or position anywhere, including in the explanation. The options will be shown in a different order.\\n\\nReturn ONLY a raw JSON array, no markdown fences, no commentary. Each element:\\n{\\\"question\\\": the question text, \\\"type\\\": \\\"mcq\\\" or \\\"speech\\\", \\\"options\\\": array of exactly 4 short answer strings (empty array when type is speech), \\\"correct_index\\\": 0-based index of the right option (use -1 when type is speech), \\\"explanation\\\": for mcq why the right answer is right, for speech the key points a strong spoken answer must cover, \\\"category\\\": a short topic label such as \\\"Arrays\\\" or \\\"Caching\\\"}\",\n  \"maxOutputTokens\": 4096\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Gemini returned a candidate\", () => {",
+              "  pm.expect(body.candidates, \"no candidates, raw response: \" + pm.response.text().slice(0, 200)).to.be.an(\"array\").that.is.not.empty;",
+              "});",
+              "const raw = (body.candidates || [{}])[0].content?.parts?.map(p => p.text || \"\").join(\"\") || \"\";",
+              "const text = raw.replace(/^\\s*```(?:json)?/i, \"\").replace(/```\\s*$/, \"\").trim();",
+              "let data;",
+              "pm.test(\"Reply is valid JSON with no commentary\", () => { data = JSON.parse(text); });",
+              "// JSON-escape a value so it can be dropped inside a later request body.",
+              "const esc = v => JSON.stringify(String(v)).slice(1, -1);",
+              "",
+              "pm.test(\"Exactly 5 questions\", () => pm.expect(data).to.be.an(\"array\").with.lengthOf(5));",
+              "pm.test(\"Exactly one spoken question\", () => {",
+              "  pm.expect(data.filter(q => q.type === \"speech\").length).to.equal(1);",
+              "});",
+              "pm.test(\"Every multiple choice question is well formed\", () => {",
+              "  data.filter(q => q.type === \"mcq\").forEach((q, i) => {",
+              "    pm.expect(q.options, \"question \" + (i + 1)).to.be.an(\"array\").with.lengthOf(4);",
+              "    pm.expect(q.correct_index, \"question \" + (i + 1)).to.be.within(0, 3);",
+              "    pm.expect(q.explanation, \"question \" + (i + 1)).to.be.a(\"string\").and.not.empty;",
+              "  });",
+              "});",
+              "pm.test(\"No position-dependent options\", () => {",
+              "  const bad = /\\b(all|none|both|neither)\\s+of\\s+(the\\s+)?(above|these|them)\\b/i;",
+              "  data.forEach(q => (q.options || []).forEach(o => pm.expect(bad.test(o), \"found: \" + o).to.equal(false)));",
+              "});",
+              "pm.test(\"Every question has a category\", () => {",
+              "  data.forEach(q => pm.expect(q.category).to.be.a(\"string\").and.not.empty);",
+              "});",
+              "const speech = data.find(q => q.type === \"speech\");",
+              "if (speech) {",
+              "  pm.collectionVariables.set(\"speech_question\", esc(speech.question));",
+              "  pm.collectionVariables.set(\"speech_key_points\", esc(speech.explanation));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Spoken answer grading",
+      "request": {
+        "description": "Grades a sample transcript against the spoken question generated in step 2.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/gemini",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "gemini"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"prompt\": \"You are grading a candidate's spoken answer in a technical interview. Be fair but rigorous.\\n\\nQUESTION: {{speech_question}}\\n\\nKEY POINTS A STRONG ANSWER COVERS: {{speech_key_points}}\\n\\nCANDIDATE TRANSCRIPT: {{candidate_transcript}}\\n\\nThe transcript came from speech to text, so ignore grammar, filler words, and transcription noise. Judge the substance.\\n\\nReturn ONLY a raw JSON object, no markdown fences, no commentary:\\n{\\\"score\\\": integer 0 to 100, \\\"feedback\\\": two or three sentences on what landed and what was missing}\",\n  \"maxOutputTokens\": 1024\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Gemini returned a candidate\", () => {",
+              "  pm.expect(body.candidates, \"no candidates, raw response: \" + pm.response.text().slice(0, 200)).to.be.an(\"array\").that.is.not.empty;",
+              "});",
+              "const raw = (body.candidates || [{}])[0].content?.parts?.map(p => p.text || \"\").join(\"\") || \"\";",
+              "const text = raw.replace(/^\\s*```(?:json)?/i, \"\").replace(/```\\s*$/, \"\").trim();",
+              "let data;",
+              "pm.test(\"Reply is valid JSON with no commentary\", () => { data = JSON.parse(text); });",
+              "// JSON-escape a value so it can be dropped inside a later request body.",
+              "const esc = v => JSON.stringify(String(v)).slice(1, -1);",
+              "",
+              "pm.test(\"score is a whole number from 0 to 100\", () => {",
+              "  pm.expect(Number.isInteger(data.score)).to.equal(true);",
+              "  pm.expect(data.score).to.be.within(0, 100);",
+              "});",
+              "pm.test(\"feedback is present\", () => pm.expect(data.feedback).to.be.a(\"string\").and.not.empty);",
+              "console.log(\"Grader score:\", data.score, \"|\", data.feedback);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Session debrief",
+      "request": {
+        "description": "Writes the end of session debrief from a sample results summary.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/gemini",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "gemini"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"prompt\": \"You are a technical interview coach writing a short debrief for a candidate who just finished a {{round_type}} practice session.\\n\\nFocus topics for the role: {{topics}}\\nPer question results, formatted as category/type/outcome: Memory Management/mcq/correct; Memory Management/speech/42 of 100; Unity Architecture/mcq/wrong; Mobile Performance/mcq/correct; Unity Architecture/speech/81 of 100\\n\\nDo not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no commentary:\\n{\\\"overall_readiness\\\": two or three sentences on how ready they are for this round, \\\"strengths\\\": array of 2 to 3 short strings, \\\"focus_areas\\\": array of 2 to 3 short strings, \\\"tip\\\": one concrete thing to do before the next session}\",\n  \"maxOutputTokens\": 1024\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Gemini returned a candidate\", () => {",
+              "  pm.expect(body.candidates, \"no candidates, raw response: \" + pm.response.text().slice(0, 200)).to.be.an(\"array\").that.is.not.empty;",
+              "});",
+              "const raw = (body.candidates || [{}])[0].content?.parts?.map(p => p.text || \"\").join(\"\") || \"\";",
+              "const text = raw.replace(/^\\s*```(?:json)?/i, \"\").replace(/```\\s*$/, \"\").trim();",
+              "let data;",
+              "pm.test(\"Reply is valid JSON with no commentary\", () => { data = JSON.parse(text); });",
+              "// JSON-escape a value so it can be dropped inside a later request body.",
+              "const esc = v => JSON.stringify(String(v)).slice(1, -1);",
+              "",
+              "pm.test(\"Has all four debrief fields\", () => {",
+              "  pm.expect(data).to.include.keys(\"overall_readiness\", \"strengths\", \"focus_areas\", \"tip\");",
+              "});",
+              "pm.test(\"2 to 3 strengths and 2 to 3 focus areas\", () => {",
+              "  pm.expect(data.strengths.length).to.be.within(2, 3);",
+              "  pm.expect(data.focus_areas.length).to.be.within(2, 3);",
+              "});",
+              "pm.test(\"No em dashes in the copy\", () => {",
+              "  pm.expect(JSON.stringify(data)).to.not.include(\"\u2014\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

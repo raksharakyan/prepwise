@@ -87,7 +87,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
 | Frontend | Replit (Lovable was intended, access never arrived) | Hosting the working HTML/JS prototype as a public web app |
 | Backend / Data | Supabase | Storing session history, quiz results, and progress over time |
-| Testing | Postman | Validating AI API calls (JD analysis, question generation, grading) before wiring into the UI |
+| Testing | Postman | Collection in `postman/` that tests the live backend: a free security check that unauthenticated calls are refused, then the four AI calls chained the way the app runs them, each with structural assertions |
 
 ## 4-Week Sprint Timeline
 
