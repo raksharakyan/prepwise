@@ -44,43 +44,41 @@ Next up is moving it to Lovable and adding Supabase so your sessions are saved. 
 
 #IITPatnaCapstone #GenerativeAI #InterviewPrep #BuildInPublic
 
-## Post 3, Week 3 (final)
+## Post 3, Week 3 (final, public version)
 
-Prepwise is live, and I'd love for you to try to break it. 🚀
+Framed as a GenAI engineering project for recruiters and developers. It deliberately carries
+no course branding and no #IITPatnaCapstone tag, so it may not count toward the capstone's
+tagged post requirement on its own.
 
-👉 Try it here: https://prepwise--raksharakyan.replit.app
+I built an AI interview coach, and it's live. I'd love for you to try to break it. 🚀
 
-Prepwise is my one-stop AI prep tool for technical interview rounds, built for the IIT Patna Capstone Sprint. Paste a job description and it works out what the round will focus on, builds a question set around it, lets you answer some questions out loud, and scores you in a boss battle against The Interviewer. Then it tells you where you stand.
+👉 https://prepwise--raksharakyan.replit.app
 
-You can try it in about five minutes:
-1️⃣ Pick an example job description, no need to find your own
-2️⃣ Keep the 5 question quick demo
-3️⃣ Answer at least one question out loud 🎙️
-4️⃣ Read your debrief
+Prepwise reads a job description, works out whether the round will lean DSA, system design or both, and builds a question set pitched at the role's level. Some questions you answer out loud, and an LLM grades what you said against what a strong answer should cover. You finish with a debrief on where you stand.
 
-What changed since last week:
-🔐 The AI key now lives on a Supabase server, never in your browser
-📈 Questions match the role's level, so an intern role gets intern questions
-🔁 You can redo spoken answers to practise, and only your first try counts
-🎯 The debrief is grounded in your actual scores
+Try it in five minutes: pick an example job description, keep the 5 question demo, and answer at least one question out loud 🎙️
 
-Favourite bug this week: I scored 100% in every category, and my own app still told me I had three weak areas, two of which it had never even tested. 😅 Now the app decides what counts as weak, and if nothing is, it tells you to level up instead.
+The interesting part was making an LLM behave inside a real product:
+🧩 Four chained LLM calls (analysis, generation, grading, debrief), each returning strict JSON the app validates
+📈 Difficulty calibrated to seniority, so an intern role gets intern questions
+🎯 Grounded output: the debrief can only name weak areas your scores actually show
+🎲 De-biasing: LLMs put the right answer in the first two options far too often, so the app places it itself
+🔁 Retries and timeouts for a model that returns 503s under load
+🔐 The API key lives in a Supabase Edge Function, never in the browser
+🧪 A Postman suite that runs the whole pipeline end to end with structural checks
 
-I'd really value your feedback:
+Favourite bug: I scored 100% in every category and my own app still told me I had three weak areas, two of which it had never even tested. 😅 The fix was to stop asking the model what's weak and compute it from the scores instead.
+
+I'd really value feedback, especially from anyone who hires or interviews engineers:
 ❓ Did the questions feel like the right difficulty?
-❓ Did answering out loud work, and did the grading feel fair?
-❓ What would make you use this before a real interview?
+❓ Did the spoken answer grading feel fair?
+❓ What would make you trust a tool like this before a real interview?
 
-Drop a comment or DM me. Voice works best in Chrome or Edge. If it says Gemini is busy, give it a minute, it runs on a free tier 🙂
+Voice works best in Chrome or Edge. It runs on a free AI tier, so if it says Gemini is busy, give it a minute 🙂
 
-🧠 Built with:
-🤖 Google AI Studio (Gemini)
-🎙️ Web Speech API
-🗄️ Supabase
-🧪 Postman
-🚀 Replit
+🛠️ Stack: Gemini API · Web Speech API · Supabase Edge Functions · Postman · Replit
 
-#IITPatnaCapstone #GenerativeAI #InterviewPrep #BuildInPublic
+#GenerativeAI #LLM #AIEngineering #PromptEngineering #BuildInPublic
 
 ## Post 4, Week 4 (outline)
 
