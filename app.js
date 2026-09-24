@@ -21,6 +21,26 @@ const S = {
 const MODEL = "gemini-3.6-flash";
 const ROUNDS = ["Technical/DSA", "System Design", "Mixed"];
 
+// Difficulty follows the level of the role. Before this, every session climbed
+// the same ladder up to "trade offs and depth", so even a coding intern job
+// ended on amortized complexity and scoping rules. Each batch takes the next
+// rung of its level's ladder.
+const LEVELS = ["Entry", "Mid", "Senior"];
+const LADDERS = {
+  Entry:  ["the very basics, like a first lesson", "simple everyday usage", "small practical examples",
+           "slightly trickier beginner questions", "beginner questions that combine two ideas",
+           "the hardest questions a beginner should still be able to answer"],
+  Mid:    ["fundamentals and warm up", "core working knowledge", "applied problem solving",
+           "trade offs and depth", "trickier practical cases", "harder edge cases"],
+  Senior: ["fundamentals and warm up", "core working knowledge", "applied problem solving",
+           "trade offs and depth", "hard edge cases", "senior level depth"]
+};
+const LEVEL_GUIDANCE = {
+  Entry:  "The candidate is entry level: a student, recent graduate or career changer. Every question must be answerable by someone who has studied the basics. Use plain language, prefer everyday examples, and avoid advanced algorithms, formal complexity analysis and specialist jargon.",
+  Mid:    "The candidate has a few years of experience. Expect solid working knowledge and practical judgment, not specialist depth.",
+  Senior: "The candidate is senior. Expect depth, trade offs and edge cases."
+};
+
 const $ = id => document.getElementById(id);
 const show = id => {
   ["s-setup","s-analysis","s-gen","s-battle","s-debrief"].forEach(s => $(s).classList.add("hidden"));
@@ -162,39 +182,43 @@ if (!useProxy() && !S.key) {
    different answer each time. Filling the box does not start an analysis:
    that still takes a click, since each one spends a Gemini request. */
 const EXAMPLE_JDS = {
-  dsa: `Software Engineer, Early Career
+  intern: `Software Engineering Intern
 
-You will write and ship production code on a small product team, working through well scoped features with support from senior engineers.
-
-What we look for:
-- Strong fundamentals in data structures and algorithms: arrays, strings, hash maps, stacks, queues, trees and graphs
-- Comfortable analyzing time and space complexity and choosing the right approach
-- Fluent in at least one of Python, Java, C++ or JavaScript
-- Able to break a problem down, write clean code, and test edge cases
-
-Our interview process includes two live coding rounds focused on problem solving.`,
-
-  design: `Senior Backend Engineer, Platform
-
-You will design and run the services behind a product used by millions of people, owning reliability, performance and scale.
+A paid summer internship for students who are learning to code. You will fix small bugs and build simple features with a mentor.
 
 What we look for:
-- Experience designing distributed systems: service boundaries, APIs, and data flow between services
-- Caching strategy, message queues such as Kafka, and relational databases at scale
-- Sharding, replication, and the trade offs between consistency and availability
-- Capacity planning, failure handling, and observability in production
-- 5+ years building backend services in Go, Java or Python`,
+- Basic programming in any language, such as Python, Java or JavaScript
+- Understanding of variables, loops, conditions and functions
+- Working with lists and strings, and simple searching and sorting
+- Curiosity and a willingness to ask questions
 
-  mixed: `Mobile Game Developer, Unity
+No work experience needed. Our interview is a friendly coding round with beginner problems.`,
 
-You will build and optimize gameplay systems for a live mobile game on iOS and Android.
+  web: `Junior Web Developer
+
+Help build and update pages for our company website.
 
 What we look for:
-- Strong C# and Unity3D, with a good grasp of game architecture and design patterns
-- Profiling and optimizing frame rate, memory and garbage collection on mobile devices
-- Solid data structures and algorithms for gameplay code
-- Designing scalable game systems and backend integration for live features
-- 3+ years shipping mobile games`
+- The basics of HTML, CSS and JavaScript
+- Making a page look right on both phones and laptops
+- Handling simple things like buttons and forms
+- Knowing what happens when you open a website in a browser
+- Using browser tools to find simple mistakes
+
+A great first job for bootcamp graduates and self taught developers.`,
+
+  support: `IT Support Trainee, Cloud
+
+Join our support team and learn how our apps run in the cloud.
+
+What we look for:
+- A basic idea of how the internet works: browsers, servers and websites
+- What a database is and why apps use one
+- What an API is, in simple terms
+- Why websites slow down when many people use them at once, and simple ways to fix it
+- Clear communication with customers
+
+Training provided. No prior experience required.`
 };
 
 document.querySelectorAll("[data-example]").forEach(b => b.addEventListener("click", () => {
@@ -233,13 +257,15 @@ $("btn-analyze").addEventListener("click", async () => {
     S.analysis = await gemini(
       'You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\n\n' +
       'Return ONLY a raw JSON object, no markdown fences, no commentary, with exactly these keys:\n' +
-      '{"round_type": one of "Technical/DSA" or "System Design" or "Mixed", "reasoning": one or two sentences explaining the call, "topics": an array of 4 to 7 specific technical topics to focus on}\n\n' +
+      '{"round_type": one of "Technical/DSA" or "System Design" or "Mixed", "level": one of "Entry" or "Mid" or "Senior", judged from the experience and responsibilities asked for, "reasoning": one or two sentences explaining the call, "topics": an array of 4 to 7 specific technical topics to focus on}\n\n' +
       'JOB DESCRIPTION:\n' + S.jd,
       1024
     );
     if (!ROUNDS.includes(S.analysis.round_type)) S.analysis.round_type = "Mixed";
     if (!Array.isArray(S.analysis.topics)) S.analysis.topics = [];
     S.roundType = S.analysis.round_type;
+    if (!LEVELS.includes(S.analysis.level)) S.analysis.level = "Mid";
+    S.level = S.analysis.level;
     renderAnalysis();
     show("s-analysis");
   } catch (e) {
@@ -263,6 +289,12 @@ function renderAnalysis() {
     .map(r => '<button class="ghost' + (r === S.roundType ? ' on' : '') + '" data-round="' + esc(r) + '">' + esc(r) + '</button>').join("");
   $("a-override").querySelectorAll("button").forEach(b => b.onclick = () => {
     S.roundType = b.dataset.round; renderAnalysis();
+  });
+
+  $("a-level").innerHTML = LEVELS
+    .map(l => '<button class="ghost' + (l === S.level ? ' on' : '') + '" data-level="' + l + '">' + l + ' level</button>').join("");
+  $("a-level").querySelectorAll("button").forEach(b => b.onclick = () => {
+    S.level = b.dataset.level; renderAnalysis();
   });
 
   $("a-count").innerHTML = [20, 30]
@@ -304,7 +336,7 @@ $("btn-generate").addEventListener("click", async () => {
   const batches = Math.ceil(S.count / perBatch);
   let shortfall = "";
   onRetry = msg => setErr("err-gen", msg);
-  const hints = ["fundamentals and warm up", "core working knowledge", "applied problem solving", "trade offs and depth", "hard edge cases", "senior level depth"];
+  const hints = LADDERS[S.level] || LADDERS.Mid;
 
   for (let i = 0; i < batches; i++) {
     $("gen-status").textContent = "Batch " + (i + 1) + " of " + batches + ", " + hints[Math.min(i, hints.length - 1)];
@@ -354,6 +386,7 @@ function buildBatchPrompt(i, total, want, hint) {
   return 'You are an expert technical interviewer writing questions for a ' + S.roundType + ' interview round.\n\n' +
     'Focus topics: ' + (S.analysis.topics.join(", ") || "core fundamentals") + '\n' +
     'This is batch ' + (i + 1) + ' of ' + total + '. Difficulty for this batch: ' + hint + '.\n' +
+    (LEVEL_GUIDANCE[S.level] || LEVEL_GUIDANCE.Mid) + '\n' +
     'Write ' + want + ' questions. Do not repeat questions from earlier batches.\n\n' +
     speechLine + '\n\n' +
     'Never write options such as "All of the above", "None of the above" or "Both A and B", and never refer to an option by its letter or position anywhere, including in the explanation. The options will be shown in a different order.\n\n' +
@@ -496,7 +529,7 @@ function lockSpeechInput(locked) {
 
 async function gradeSpeech(q, text) {
   const g = await gemini(
-    'You are grading a candidate\'s spoken answer in a technical interview. Be fair but rigorous.\n\n' +
+    'You are grading a candidate\'s spoken answer in a technical interview. Be fair but rigorous, and judge it against what is expected at ' + (S.level || "Mid") + ' level.\n\n' +
     'QUESTION: ' + q.question + '\n\n' +
     'KEY POINTS A STRONG ANSWER COVERS: ' + q.explanation + '\n\n' +
     'CANDIDATE TRANSCRIPT: ' + text + '\n\n' +
@@ -750,7 +783,7 @@ async function runDebrief() {
 
   try {
     const d = await gemini(
-      'You are a technical interview coach writing a short debrief for a candidate who just finished a ' + S.roundType + ' practice session.\n\n' +
+      'You are a technical interview coach writing a short debrief for a candidate who just finished a ' + S.roundType + ' practice session at ' + (S.level || "Mid") + ' level.\n\n' +
       'Focus topics for the role: ' + (S.analysis.topics.join(", ") || "general") + '\n' +
       'Per question results, formatted as category/type/outcome: ' + summary + '\n\n' +
       'Do not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no commentary:\n' +

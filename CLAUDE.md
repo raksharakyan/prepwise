@@ -23,7 +23,8 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 ## Features to Build
 
 - [x] JD input (paste text or upload a .txt file), with AI-driven round-type detection and topic extraction; user can override the suggested round type
-- [x] Example job descriptions on the setup screen, one per track (early career engineer, senior backend engineer, Unity mobile game developer), so anyone can try the app without finding one; verified to classify as Technical/DSA, System Design and Mixed respectively
+- [x] Example job descriptions on the setup screen, three beginner roles (coding intern, junior web developer, IT support trainee), so anyone can try the app without finding one
+- [x] Difficulty follows the role's level: the analysis detects Entry, Mid or Senior, the user can override it, and each level climbs its own difficulty ladder; grading and the debrief judge against the level
 - [x] Batched adaptive question generation (20 or 30 total questions), scaling from fundamentals to harder edge cases across batches
 - [x] Two question types: multiple-choice (instant client-side scoring) and speech-answered (via browser voice input, with a manual typed fallback for unsupported browsers)
 - [x] AI grading of spoken answers (0 to 100 score plus written feedback)
@@ -73,7 +74,7 @@ arrives with session history since `sessions.user_id` needs a real user anyway.
 
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 
-- **JD analysis prompt**: returns strict JSON `{round_type, reasoning, topics}` given the JD text
+- **JD analysis prompt**: returns strict JSON `{round_type, level, reasoning, topics}` given the JD text, where level is Entry, Mid or Senior and sets how hard the questions get
 - **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
 - **Speech grading prompt**: given the question, the ideal answer/key points (from `explanation`), and the candidate's transcript, returns strict JSON `{score, feedback}`
 - **Debrief prompt**: given a compact summary string of per-question category/type/correct-or-score, returns strict JSON `{overall_readiness, strengths, focus_areas, tip}`

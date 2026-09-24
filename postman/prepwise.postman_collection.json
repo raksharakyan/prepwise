@@ -33,6 +33,18 @@
     {
       "key": "speech_key_points",
       "value": ""
+    },
+    {
+      "key": "level",
+      "value": ""
+    },
+    {
+      "key": "first_rung",
+      "value": ""
+    },
+    {
+      "key": "level_guidance",
+      "value": ""
     }
   ],
   "item": [
@@ -109,7 +121,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\\n\\nReturn ONLY a raw JSON object, no markdown fences, no commentary, with exactly these keys:\\n{\\\"round_type\\\": one of \\\"Technical/DSA\\\" or \\\"System Design\\\" or \\\"Mixed\\\", \\\"reasoning\\\": one or two sentences explaining the call, \\\"topics\\\": an array of 4 to 7 specific technical topics to focus on}\\n\\nJOB DESCRIPTION:\\nSenior Unity engineer building mobile games in C#. Profile and optimize performance, memory usage and garbage collection across iOS and Android. Design scalable core game systems, own features end to end, and review code. 6+ years of game development, strong C# and Unity3D, mobile optimization experience.\",\n  \"maxOutputTokens\": 1024\n}",
+          "raw": "{\n  \"prompt\": \"You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\\n\\nReturn ONLY a raw JSON object, no markdown fences, no commentary, with exactly these keys:\\n{\\\"round_type\\\": one of \\\"Technical/DSA\\\" or \\\"System Design\\\" or \\\"Mixed\\\", \\\"level\\\": one of \\\"Entry\\\" or \\\"Mid\\\" or \\\"Senior\\\", judged from the experience and responsibilities asked for, \\\"reasoning\\\": one or two sentences explaining the call, \\\"topics\\\": an array of 4 to 7 specific technical topics to focus on}\\n\\nJOB DESCRIPTION:\\nSenior Unity engineer building mobile games in C#. Profile and optimize performance, memory usage and garbage collection across iOS and Android. Design scalable core game systems, own features end to end, and review code. 6+ years of game development, strong C# and Unity3D, mobile optimization experience.\",\n  \"maxOutputTokens\": 1024\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -146,7 +158,19 @@
               "});",
               "// Feed the next request, the same way the app chains these calls.",
               "pm.collectionVariables.set(\"round_type\", esc(data.round_type));",
-              "pm.collectionVariables.set(\"topics\", esc(data.topics.join(\", \")));"
+              "pm.collectionVariables.set(\"topics\", esc(data.topics.join(\", \")));",
+              "pm.test(\"level is Entry, Mid or Senior\", () => pm.expect([\"Entry\", \"Mid\", \"Senior\"]).to.include(data.level));",
+              "// Same ladders and guidance as app.js: batch 1 uses the first rung of the level's ladder.",
+              "const FIRST_RUNG = { Entry: \"the very basics, like a first lesson\", Mid: \"fundamentals and warm up\", Senior: \"fundamentals and warm up\" };",
+              "const GUIDANCE = {",
+              "  Entry:  \"The candidate is entry level: a student, recent graduate or career changer. Every question must be answerable by someone who has studied the basics. Use plain language, prefer everyday examples, and avoid advanced algorithms, formal complexity analysis and specialist jargon.\",",
+              "  Mid:    \"The candidate has a few years of experience. Expect solid working knowledge and practical judgment, not specialist depth.\",",
+              "  Senior: \"The candidate is senior. Expect depth, trade offs and edge cases.\"",
+              "};",
+              "const lvl = [\"Entry\", \"Mid\", \"Senior\"].includes(data.level) ? data.level : \"Mid\";",
+              "pm.collectionVariables.set(\"level\", lvl);",
+              "pm.collectionVariables.set(\"first_rung\", esc(FIRST_RUNG[lvl]));",
+              "pm.collectionVariables.set(\"level_guidance\", esc(GUIDANCE[lvl]));"
             ]
           }
         }
@@ -180,7 +204,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"You are an expert technical interviewer writing questions for a {{round_type}} interview round.\\n\\nFocus topics: {{topics}}\\nThis is batch 1 of 4. Difficulty for this batch: fundamentals and warm up.\\nWrite 5 questions. Do not repeat questions from earlier batches.\\n\\nExactly ONE question in this batch must have \\\"type\\\": \\\"speech\\\". The rest are \\\"mcq\\\".\\n\\nNever write options such as \\\"All of the above\\\", \\\"None of the above\\\" or \\\"Both A and B\\\", and never refer to an option by its letter or position anywhere, including in the explanation. The options will be shown in a different order.\\n\\nReturn ONLY a raw JSON array, no markdown fences, no commentary. Each element:\\n{\\\"question\\\": the question text, \\\"type\\\": \\\"mcq\\\" or \\\"speech\\\", \\\"options\\\": array of exactly 4 short answer strings (empty array when type is speech), \\\"correct_index\\\": 0-based index of the right option (use -1 when type is speech), \\\"explanation\\\": for mcq why the right answer is right, for speech the key points a strong spoken answer must cover, \\\"category\\\": a short topic label such as \\\"Arrays\\\" or \\\"Caching\\\"}\",\n  \"maxOutputTokens\": 4096\n}",
+          "raw": "{\n  \"prompt\": \"You are an expert technical interviewer writing questions for a {{round_type}} interview round.\\n\\nFocus topics: {{topics}}\\nThis is batch 1 of 4. Difficulty for this batch: {{first_rung}}.\\n{{level_guidance}}\\nWrite 5 questions. Do not repeat questions from earlier batches.\\n\\nExactly ONE question in this batch must have \\\"type\\\": \\\"speech\\\". The rest are \\\"mcq\\\".\\n\\nNever write options such as \\\"All of the above\\\", \\\"None of the above\\\" or \\\"Both A and B\\\", and never refer to an option by its letter or position anywhere, including in the explanation. The options will be shown in a different order.\\n\\nReturn ONLY a raw JSON array, no markdown fences, no commentary. Each element:\\n{\\\"question\\\": the question text, \\\"type\\\": \\\"mcq\\\" or \\\"speech\\\", \\\"options\\\": array of exactly 4 short answer strings (empty array when type is speech), \\\"correct_index\\\": 0-based index of the right option (use -1 when type is speech), \\\"explanation\\\": for mcq why the right answer is right, for speech the key points a strong spoken answer must cover, \\\"category\\\": a short topic label such as \\\"Arrays\\\" or \\\"Caching\\\"}\",\n  \"maxOutputTokens\": 4096\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -263,7 +287,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"You are grading a candidate's spoken answer in a technical interview. Be fair but rigorous.\\n\\nQUESTION: {{speech_question}}\\n\\nKEY POINTS A STRONG ANSWER COVERS: {{speech_key_points}}\\n\\nCANDIDATE TRANSCRIPT: {{candidate_transcript}}\\n\\nThe transcript came from speech to text, so ignore grammar, filler words, and transcription noise. Judge the substance.\\n\\nReturn ONLY a raw JSON object, no markdown fences, no commentary:\\n{\\\"score\\\": integer 0 to 100, \\\"feedback\\\": two or three sentences on what landed and what was missing}\",\n  \"maxOutputTokens\": 1024\n}",
+          "raw": "{\n  \"prompt\": \"You are grading a candidate's spoken answer in a technical interview. Be fair but rigorous, and judge it against what is expected at {{level}} level.\\n\\nQUESTION: {{speech_question}}\\n\\nKEY POINTS A STRONG ANSWER COVERS: {{speech_key_points}}\\n\\nCANDIDATE TRANSCRIPT: {{candidate_transcript}}\\n\\nThe transcript came from speech to text, so ignore grammar, filler words, and transcription noise. Judge the substance.\\n\\nReturn ONLY a raw JSON object, no markdown fences, no commentary:\\n{\\\"score\\\": integer 0 to 100, \\\"feedback\\\": two or three sentences on what landed and what was missing}\",\n  \"maxOutputTokens\": 1024\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -329,7 +353,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"You are a technical interview coach writing a short debrief for a candidate who just finished a {{round_type}} practice session.\\n\\nFocus topics for the role: {{topics}}\\nPer question results, formatted as category/type/outcome: Memory Management/mcq/correct; Memory Management/speech/42 of 100; Unity Architecture/mcq/wrong; Mobile Performance/mcq/correct; Unity Architecture/speech/81 of 100\\n\\nDo not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no commentary:\\n{\\\"overall_readiness\\\": two or three sentences on how ready they are for this round, \\\"strengths\\\": array of 2 to 3 short strings, \\\"focus_areas\\\": array of 2 to 3 short strings, \\\"tip\\\": one concrete thing to do before the next session}\",\n  \"maxOutputTokens\": 1024\n}",
+          "raw": "{\n  \"prompt\": \"You are a technical interview coach writing a short debrief for a candidate who just finished a {{round_type}} practice session at {{level}} level.\\n\\nFocus topics for the role: {{topics}}\\nPer question results, formatted as category/type/outcome: Memory Management/mcq/correct; Memory Management/speech/42 of 100; Unity Architecture/mcq/wrong; Mobile Performance/mcq/correct; Unity Architecture/speech/81 of 100\\n\\nDo not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no commentary:\\n{\\\"overall_readiness\\\": two or three sentences on how ready they are for this round, \\\"strengths\\\": array of 2 to 3 short strings, \\\"focus_areas\\\": array of 2 to 3 short strings, \\\"tip\\\": one concrete thing to do before the next session}\",\n  \"maxOutputTokens\": 1024\n}",
           "options": {
             "raw": {
               "language": "json"

@@ -14,8 +14,9 @@ which interview round the candidate should prepare for.
 
 Return ONLY a raw JSON object, no markdown fences, no commentary, with exactly these
 keys:
-{"round_type": one of "Technical/DSA" or "System Design" or "Mixed", "reasoning": one
-or two sentences explaining the call, "topics": an array of 4 to 7 specific technical
+{"round_type": one of "Technical/DSA" or "System Design" or "Mixed", "level": one of
+"Entry" or "Mid" or "Senior", judged from the experience and responsibilities asked for,
+"reasoning": one or two sentences explaining the call, "topics": an array of 4 to 7 specific technical
 topics to focus on}
 
 JOB DESCRIPTION:
@@ -32,6 +33,7 @@ interview round.
 
 Focus topics: {TOPICS}
 This is batch {N} of {TOTAL}. Difficulty for this batch: {HINT}.
+{LEVEL_GUIDANCE}
 Write {COUNT} questions. Do not repeat questions from earlier batches.
 
 Exactly ONE question in this batch must have "type": "speech". The rest are "mcq".
@@ -51,8 +53,22 @@ must cover, "category": a short topic label such as "Arrays" or "Caching"}
 When spoken answers are switched off, replace the speech line with: `Every question
 must have "type": "mcq".`
 
-Difficulty hints, in order: fundamentals and warm up, core working knowledge, applied
-problem solving, trade offs and depth, hard edge cases, senior level depth.
+Difficulty depends on the level, which the analysis detects and the user can override.
+Each batch takes the next rung of that level's ladder:
+
+| Level | Rungs, batch 1 upward |
+| --- | --- |
+| Entry | the very basics, like a first lesson; simple everyday usage; small practical examples; slightly trickier beginner questions; beginner questions that combine two ideas; the hardest questions a beginner should still be able to answer |
+| Mid | fundamentals and warm up; core working knowledge; applied problem solving; trade offs and depth; trickier practical cases; harder edge cases |
+| Senior | fundamentals and warm up; core working knowledge; applied problem solving; trade offs and depth; hard edge cases; senior level depth |
+
+{LEVEL_GUIDANCE} is one sentence per level. Entry: answerable by someone who has studied
+the basics, plain language, everyday examples, no advanced algorithms, formal complexity
+analysis or specialist jargon. Mid: solid working knowledge, not specialist depth.
+Senior: depth, trade offs and edge cases.
+
+Before this, every role climbed the same ladder to "trade offs and depth", so even a coding
+intern job ended on amortized complexity and scoping rules.
 
 ## 3. Spoken answer grading
 
@@ -60,7 +76,7 @@ Max output tokens: 1024
 
 ```
 You are grading a candidate's spoken answer in a technical interview. Be fair but
-rigorous.
+rigorous, and judge it against what is expected at {LEVEL} level.
 
 QUESTION: {QUESTION}
 
@@ -83,7 +99,7 @@ string joined by semicolons, for example `Arrays/mcq/correct; Caching/speech/72 
 
 ```
 You are a technical interview coach writing a short debrief for a candidate who just
-finished a {ROUND_TYPE} practice session.
+finished a {ROUND_TYPE} practice session at {LEVEL} level.
 
 Focus topics for the role: {TOPICS}
 Per question results, formatted as category/type/outcome: {SUMMARY}
