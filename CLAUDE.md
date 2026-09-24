@@ -39,7 +39,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 
 ## Existing Prototype
 
-A working single-file HTML/JS prototype lives at `index.html`, implementing the full flow above and verified end to end against the live Gemini API:
+The app is plain HTML, CSS and JavaScript with no build step, implementing the full flow above and verified end to end against the live Gemini API. It is three files plus a config: `index.html` holds the markup, `styles.css` the styles, and `app.js` all the logic. `config.js` (gitignored) holds the Supabase URL and publishable key, and must load before `app.js`. All four are deployed together as a Replit static site:
 
 - JD paste/upload screen, then an AI-analysis screen showing detected round type + topics with override buttons and question-count/speech toggles
 - Batched quiz generation: calls the LLM in batches of 5 questions at a time (to fit small max-token responses), building up to the full 20 or 30 question set with a live progress bar
@@ -96,7 +96,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | Week 1 | Ideation and Planning | Finalize project idea and submit 1-pager | 1-Page Idea Doc + Public Post #1 | Sept 5 |
 | Week 2 | Core Build | Develop AI logic and data flow | Working prototype + Post #2 | Sept 12 |
 | Week 3 | Integration and UI | Build frontend and connect to database | Functional web app + Post #3 | Sept 19 |
-| Week 4 | Testing and Showcase | Finalize, polish, record demo | Demo Video + Documentation + Post #4 | Sept 26 |
+| Week 4 | Testing and Showcase | Finalize, polish, record demo | Demo Video + Documentation + Post #4 | Sun Sept 27 (extended from Sept 26) |
 
 ## Deliverables Checklist
 
