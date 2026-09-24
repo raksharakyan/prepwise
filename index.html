@@ -252,16 +252,28 @@ const show = id => {
 const setErr = (id, msg) => { $(id).textContent = msg || ""; };
 
 /* ---------------- gemini ---------------- */
+// Gemini's free tier returns 503 "high demand" often, sometimes for a minute
+// or more at a time. Retry patiently, and say so, because a silent spinner
+// looks identical to a hang.
+let onRetry = null;
+
 async function gemini(prompt, maxTokens, attempt) {
   attempt = attempt || 1;
-  const MAX_ATTEMPTS = 4;
+  const MAX_ATTEMPTS = 6;
   try {
-    return await geminiOnce(prompt, maxTokens);
+    const out = await geminiOnce(prompt, maxTokens);
+    if (onRetry) onRetry("");
+    return out;
   } catch (e) {
     if (e.transient && attempt < MAX_ATTEMPTS) {
-      await new Promise(r => setTimeout(r, 800 * Math.pow(2, attempt - 1)));
+      const wait = Math.min(1000 * Math.pow(2, attempt - 1), 15000);
+      if (onRetry) {
+        onRetry("Gemini is busy. Retrying, attempt " + (attempt + 1) + " of " + MAX_ATTEMPTS + ".");
+      }
+      await new Promise(r => setTimeout(r, wait));
       return gemini(prompt, maxTokens, attempt + 1);
     }
+    if (onRetry) onRetry("");
     throw e;
   }
 }
@@ -300,11 +312,27 @@ async function geminiOnce(prompt, maxTokens) {
         }
       };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: headers,
-    body: JSON.stringify(payload)
-  });
+  // Without this a stalled connection leaves the button saying "Analyzing"
+  // with no error and no way back.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+  } catch (e) {
+    const err = new Error(e.name === "AbortError"
+      ? "The request timed out after 45 seconds."
+      : "Could not reach the AI backend: " + e.message);
+    err.transient = true;
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     let detail = "";
@@ -367,6 +395,7 @@ $("btn-analyze").addEventListener("click", async () => {
   const btn = $("btn-analyze");
   btn.disabled = true;
   btn.textContent = "Analyzing";
+  onRetry = msg => setErr("err-setup", msg);
   try {
     S.analysis = await gemini(
       'You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\n\n' +
@@ -383,6 +412,7 @@ $("btn-analyze").addEventListener("click", async () => {
   } catch (e) {
     setErr("err-setup", e.message);
   } finally {
+    onRetry = null;
     btn.disabled = false;
     btn.textContent = "Analyze this role";
   }
@@ -439,6 +469,7 @@ $("btn-generate").addEventListener("click", async () => {
   const perBatch = 5;
   const batches = Math.ceil(S.count / perBatch);
   let shortfall = "";
+  onRetry = msg => setErr("err-gen", msg);
   const hints = ["fundamentals and warm up", "core working knowledge", "applied problem solving", "trade offs and depth", "hard edge cases", "senior level depth"];
 
   for (let i = 0; i < batches; i++) {
