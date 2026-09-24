@@ -781,37 +781,65 @@ $("btn-mic").addEventListener("click", () => S.listening ? stopMic() : startMic(
 function startMic() {
   const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Ctor) return;
+  setErr("err-battle", "");
+  S.listening = true;
+  $("btn-mic").textContent = "Stop";
+  $("btn-mic").classList.add("mic-on");
+  $("mic-status").textContent = "Listening";
+  beginRecognition(Ctor);
+}
+
+// Chrome ends a recognition session by itself after a stretch of silence,
+// even with continuous set, so pausing to think used to switch the mic off.
+// While the user has not pressed Stop, a session ending just starts another,
+// and each new session builds on whatever is already in the box.
+function beginRecognition(Ctor) {
   const rec = new Ctor();
   rec.continuous = true;
   rec.interimResults = true;
   rec.lang = "en-US";
 
-  const base = $("transcript").value ? $("transcript").value.trim() + " " : "";
+  const base = $("transcript").value.trim();
+
   rec.onresult = ev => {
-    let out = "";
-    for (let i = ev.resultIndex; i < ev.results.length; i++) out += ev.results[i][0].transcript;
-    $("transcript").value = base + out;
+    // Rebuild from every result in this session. Starting at ev.resultIndex,
+    // which only marks what changed, dropped every sentence finalized before
+    // the most recent pause and wiped the answer.
+    let spoken = "";
+    for (let i = 0; i < ev.results.length; i++) spoken += ev.results[i][0].transcript;
+    spoken = spoken.trim();
+    $("transcript").value = base && spoken ? base + " " + spoken : (base || spoken);
   };
+
   rec.onerror = ev => {
+    // Silence, and the abort from our own Stop, are not failures.
+    if (ev.error === "no-speech" || ev.error === "aborted") return;
     stopMic();
     setErr("err-battle", ev.error === "not-allowed"
       ? "Microphone access was blocked. Allow it in your browser, or type your answer."
       : "Voice input error: " + ev.error + ". You can type your answer instead.");
   };
-  rec.onend = () => { if (S.listening) stopMic(); };
+
+  rec.onend = () => {
+    // Only restart if this is still the live session and the user never pressed Stop.
+    if (S.listening && S.recognizer === rec) beginRecognition(Ctor);
+  };
 
   S.recognizer = rec;
-  S.listening = true;
-  $("btn-mic").textContent = "Stop";
-  $("btn-mic").classList.add("mic-on");
-  $("mic-status").textContent = "Listening";
-  rec.start();
+  try {
+    rec.start();
+  } catch (e) {
+    stopMic();
+    setErr("err-battle", "Could not start voice input: " + e.message + ". You can type your answer instead.");
+  }
 }
 
 function stopMic() {
-  if (S.recognizer) { try { S.recognizer.stop(); } catch (e) {} }
+  const rec = S.recognizer;
+  // Clear these first, so the onend that stop() triggers does not restart.
   S.recognizer = null;
   S.listening = false;
+  if (rec) { try { rec.stop(); } catch (e) {} }
   $("btn-mic").textContent = "Start speaking";
   $("btn-mic").classList.remove("mic-on");
   if ($("mic-status").textContent === "Listening") $("mic-status").textContent = "Stopped. Edit your answer if you need to.";
