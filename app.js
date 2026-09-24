@@ -297,8 +297,11 @@ function renderAnalysis() {
     S.level = b.dataset.level; renderAnalysis();
   });
 
-  $("a-count").innerHTML = [20, 30]
-    .map(n => '<button class="ghost' + (n === S.count ? ' on' : '') + '" data-count="' + n + '">' + n + ' questions</button>').join("");
+  // 5 is a one batch demo: about 4 Gemini requests end to end instead of
+  // about 10 for 20 questions, which matters on a free tier of roughly 20 a day.
+  $("a-count").innerHTML = [5, 20, 30]
+    .map(n => '<button class="ghost' + (n === S.count ? ' on' : '') + '" data-count="' + n + '">' +
+              n + ' questions' + (n === 5 ? ' (quick demo)' : '') + '</button>').join("");
   $("a-count").querySelectorAll("button").forEach(b => b.onclick = () => {
     S.count = +b.dataset.count; renderAnalysis();
   });
@@ -366,7 +369,9 @@ $("btn-generate").addEventListener("click", async () => {
 
   if (S.questions.length < S.count) {
     $("gen-status").textContent = "Built " + S.questions.length + " of " + S.count + " questions";
-    setErr("err-gen", "Gemini stopped early: " + shortfall +
+    setErr("err-gen", (shortfall
+        ? "Gemini stopped early: " + shortfall
+        : "Some generated questions were malformed and had to be dropped.") +
       "\n\nYou can start this " + S.questions.length + " question session, or go back and try for the full set.");
     $("gen-count").innerHTML = '<button id="btn-go-short">Start with ' + S.questions.length + ' questions</button>' +
       ' <button class="ghost" id="btn-regen">Back</button>';

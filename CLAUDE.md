@@ -25,7 +25,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [x] JD input (paste text or upload a .txt file), with AI-driven round-type detection and topic extraction; user can override the suggested round type
 - [x] Example job descriptions on the setup screen, three beginner roles (coding intern, junior web developer, IT support trainee), so anyone can try the app without finding one
 - [x] Difficulty follows the role's level: the analysis detects Entry, Mid or Senior, the user can override it, and each level climbs its own difficulty ladder; grading and the debrief judge against the level
-- [x] Batched adaptive question generation (20 or 30 total questions), scaling from fundamentals to harder edge cases across batches
+- [x] Batched adaptive question generation (20 or 30 total questions, or 5 as a quick demo), scaling up in difficulty across batches. The 5 question demo is a single batch, about 4 Gemini requests end to end instead of about 10, and always includes one spoken question
 - [x] Two question types: multiple-choice (instant client-side scoring) and speech-answered (via browser voice input, with a manual typed fallback for unsupported browsers)
 - [x] AI grading of spoken answers (0 to 100 score plus written feedback)
 - [x] Redo and Show Correct Answer on spoken questions: the first attempt is the scored one and alone moves HP and the debrief; up to two redos are graded as practice only; the reference answer can be revealed any time and is revealed automatically once the last redo is graded
