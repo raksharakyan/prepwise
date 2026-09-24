@@ -91,6 +91,10 @@
   ul { margin: 8px 0 0; padding-left: 20px; }
   li { margin-bottom: 5px; }
   .mic-on { background: var(--danger); }
+  .reveal { margin-top: 16px; border: 1px solid var(--accent-2); background: rgba(0,212,184,.08); border-radius: 10px; padding: 12px 16px; }
+  .reveal h3 { margin: 0 0 6px; font-size: 15px; color: var(--accent-2); }
+  .reveal p { margin: 0; }
+  .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
   @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
   .shake { animation: shake .32s; }
 </style>
@@ -553,6 +557,11 @@ function renderQuestion() {
     $("q-speech").classList.remove("hidden");
     $("transcript").value = "";
     $("btn-submit-speech").disabled = false;
+    S.redosLeft = MAX_REDOS;
+    S.revealed = false;
+    S.scored = null;
+    S.lastPanel = null;
+    lockSpeechInput(false);
     $("btn-mic").disabled = !hasSpeechApi();
     $("mic-status").textContent = hasSpeechApi() ? "Answer out loud, or type it below." : "Voice input is not available in this browser. Type your answer.";
   } else {
@@ -599,6 +608,50 @@ function answerMcq(picked) {
   );
 }
 
+/* ---------------- spoken answers ----------------
+   The first attempt is the scored one: it moves HP and feeds the debrief,
+   because that is what the candidate would have said in a real interview.
+   After it, up to MAX_REDOS practice attempts are graded for feedback only.
+   The reference answer can be revealed at any point, and is revealed
+   automatically once the last redo has been graded. */
+const MAX_REDOS = 2;
+
+function lockSpeechInput(locked) {
+  $("transcript").readOnly = locked;
+  $("btn-mic").disabled = locked || !hasSpeechApi();
+}
+
+async function gradeSpeech(q, text) {
+  const g = await gemini(
+    'You are grading a candidate\'s spoken answer in a technical interview. Be fair but rigorous.\n\n' +
+    'QUESTION: ' + q.question + '\n\n' +
+    'KEY POINTS A STRONG ANSWER COVERS: ' + q.explanation + '\n\n' +
+    'CANDIDATE TRANSCRIPT: ' + text + '\n\n' +
+    'The transcript came from speech to text, so ignore grammar, filler words, and transcription noise. Judge the substance.\n\n' +
+    'Return ONLY a raw JSON object, no markdown fences, no commentary:\n' +
+    '{"score": integer 0 to 100, "feedback": two or three sentences on what landed and what was missing}',
+    1024
+  );
+  return {
+    score: Math.max(0, Math.min(100, parseInt(g.score, 10) || 0)),
+    feedback: g.feedback || ""
+  };
+}
+
+// Applies the scored attempt to the battle and the debrief. Called once per question.
+function applySpeechScore(q, score) {
+  const d = damage();
+  let title;
+  if (score >= 80) { S.bossHp -= d * 2; title = "Critical hit"; }
+  else if (score >= 50) { S.bossHp -= d; title = "Solid hit"; }
+  else { S.youHp -= d; title = "You take damage"; }
+  $("boss-box").classList.add("shake");
+  setTimeout(() => $("boss-box").classList.remove("shake"), 340);
+  paintHp();
+  S.results.push({ category: q.category || "General", type: "speech", score: score });
+  return title;
+}
+
 async function submitSpeech() {
   if (S.answered) return;
   const text = $("transcript").value.trim();
@@ -606,59 +659,119 @@ async function submitSpeech() {
   S.answered = true;
   stopMic();
   setErr("err-battle", "");
+  lockSpeechInput(true);
 
   const btn = $("btn-submit-speech");
   btn.disabled = true;
   btn.textContent = "Grading";
   const q = S.questions[S.idx];
+  const practice = S.scored !== null;
 
-  let score = 0, feedback = "";
+  let result;
   try {
-    const g = await gemini(
-      'You are grading a candidate\'s spoken answer in a technical interview. Be fair but rigorous.\n\n' +
-      'QUESTION: ' + q.question + '\n\n' +
-      'KEY POINTS A STRONG ANSWER COVERS: ' + q.explanation + '\n\n' +
-      'CANDIDATE TRANSCRIPT: ' + text + '\n\n' +
-      'The transcript came from speech to text, so ignore grammar, filler words, and transcription noise. Judge the substance.\n\n' +
-      'Return ONLY a raw JSON object, no markdown fences, no commentary:\n' +
-      '{"score": integer 0 to 100, "feedback": two or three sentences on what landed and what was missing}',
-      1024
-    );
-    score = Math.max(0, Math.min(100, parseInt(g.score, 10) || 0));
-    feedback = g.feedback || "";
+    result = await gradeSpeech(q, text);
   } catch (e) {
+    btn.textContent = "Submit answer";
+    if (practice) {
+      // A Gemini outage should not cost the user a practice attempt.
+      setErr("err-battle", "Grading failed: " + e.message + " Your answer is still here, submit again when ready.");
+      S.answered = false;
+      lockSpeechInput(false);
+      btn.disabled = false;
+      return;
+    }
     setErr("err-battle", "Grading failed: " + e.message + " Scoring this one as a miss.");
+    result = { score: 0, feedback: "" };
+  }
+  btn.textContent = "Submit answer";
+
+  let title;
+  if (!practice) {
+    title = applySpeechScore(q, result.score) + ", scored " + result.score + " out of 100";
+    S.scored = result.score;
+  } else {
+    title = (S.revealed ? "Practice after seeing the answer" : "Practice attempt") +
+            ", scored " + result.score + " out of 100";
+    // Reveal only after the final attempt is graded, never before it.
+    if (S.redosLeft === 0) S.revealed = true;
   }
 
-  const d = damage();
-  let title;
-  if (score >= 80) { S.bossHp -= d * 2; title = "Critical hit"; }
-  else if (score >= 50) { S.bossHp -= d; title = "Solid hit"; }
-  else { S.youHp -= d; title = "You take damage"; }
+  $("mic-status").textContent = S.redosLeft > 0
+    ? "Graded. Use Redo below to practise this one again."
+    : "Graded. No redos left for this question.";
+  S.lastPanel = { title: title, body: result.feedback };
+  renderSpeechPanel();
+}
 
-  $("boss-box").classList.add("shake");
-  setTimeout(() => $("boss-box").classList.remove("shake"), 340);
-  paintHp();
+function renderSpeechPanel() {
+  const q = S.questions[S.idx];
+  const p = S.lastPanel;
+  let html = "";
 
-  S.results.push({ category: q.category || "General", type: "speech", score: score });
-  btn.textContent = "Submit answer";
-  showFeedback(title + ", scored " + score + " out of 100", feedback);
+  if (p) {
+    html += '<div class="fb"><h3>' + esc(p.title) + '</h3><p class="muted" style="margin:0">' + esc(p.body) + '</p></div>';
+    html += '<p class="note">Your scored answer: ' + S.scored + ' out of 100. Redos are practice and do not change your HP or your debrief.</p>';
+  }
+
+  html += '<div class="row" style="margin-top:16px">';
+  if (p && S.redosLeft > 0) html += '<button class="ghost" id="btn-redo">Redo (' + S.redosLeft + ')</button>';
+  if (p && !S.revealed)     html += '<button class="ghost" id="btn-reveal">Show correct answer</button>';
+  html += nextButtonHtml() + '</div>';
+
+  if (S.revealed) {
+    html += '<div class="reveal"><h3>What a strong answer covers</h3><p>' + esc(q.explanation || "") + '</p></div>';
+  }
+
+  $("q-feedback").innerHTML = html;
+  $("q-feedback").classList.remove("hidden");
+  wireNext();
+  if ($("btn-redo"))   $("btn-redo").onclick = startRedo;
+  if ($("btn-reveal")) $("btn-reveal").onclick = () => { S.revealed = true; renderSpeechPanel(); };
+}
+
+function startRedo() {
+  if (S.redosLeft <= 0) return;
+  S.redosLeft--;
+  S.answered = false;
+  S.lastPanel = null;
+  setErr("err-battle", "");
+  $("transcript").value = "";
+  lockSpeechInput(false);
+  $("btn-submit-speech").disabled = false;
+  const n = MAX_REDOS - S.redosLeft;
+  $("mic-status").textContent = S.revealed
+    ? "Practice attempt " + n + " of " + MAX_REDOS + ". The answer is below for reference."
+    : "Practice attempt " + n + " of " + MAX_REDOS + ". Answer again.";
+  // Keep the revealed answer on screen during the attempt, and keep Next
+  // available so a redo can be abandoned.
+  renderSpeechPanel();
+  $("transcript").focus();
 }
 
 $("btn-submit-speech").addEventListener("click", submitSpeech);
 
-function showFeedback(title, body) {
-  const last = S.idx === S.questions.length - 1;
-  const over = S.youHp <= 0 || S.bossHp <= 0;
-  $("q-feedback").innerHTML =
-    '<div class="fb"><h3>' + esc(title) + '</h3><p class="muted" style="margin:0">' + esc(body) + '</p></div>' +
-    '<div class="row" style="margin-top:16px"><button id="btn-next">' +
-    ((last || over) ? "See my debrief" : "Next question") + '</button></div>';
+function sessionEnding() {
+  return S.idx === S.questions.length - 1 || S.youHp <= 0 || S.bossHp <= 0;
+}
+
+function nextButtonHtml() {
+  return '<button id="btn-next">' + (sessionEnding() ? "See my debrief" : "Next question") + '</button>';
+}
+
+function wireNext() {
   $("btn-next").onclick = () => {
-    if (last || over) return runDebrief();
+    stopMic();
+    if (sessionEnding()) return runDebrief();
     S.idx++;
     renderQuestion();
   };
+}
+
+function showFeedback(title, body) {
+  $("q-feedback").innerHTML =
+    '<div class="fb"><h3>' + esc(title) + '</h3><p class="muted" style="margin:0">' + esc(body) + '</p></div>' +
+    '<div class="row" style="margin-top:16px">' + nextButtonHtml() + '</div>';
+  wireNext();
   $("q-feedback").classList.remove("hidden");
 }
 
