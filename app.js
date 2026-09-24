@@ -6,7 +6,9 @@ const S = {
   jd: "",
   analysis: null,
   roundType: "",
-  count: 20,
+  // Default to the quick demo: most visitors to the live link are trying it
+  // out, and 5 questions cost about 4 Gemini requests instead of about 10.
+  count: 5,
   speech: true,
   questions: [],
   idx: 0,
