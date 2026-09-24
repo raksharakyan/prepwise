@@ -46,6 +46,8 @@ Next up is moving it to Lovable and adding Supabase so your sessions are saved. 
 
 ## Post 3, Week 3 (final, public version)
 
+Image: `assets/prepwise-launch.png`
+
 Framed as a GenAI engineering project for recruiters and developers. It deliberately carries
 no course branding and no #IITPatnaCapstone tag, so it may not count toward the capstone's
 tagged post requirement on its own.
