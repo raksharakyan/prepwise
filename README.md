@@ -50,8 +50,12 @@ then serve the folder with any static server and open `index.html`:
 python3 -m http.server 8000
 ```
 
-No build step. The app is four files that deploy together: `index.html`, `styles.css`,
-`app.js`, and your `config.js`.
+No build step to run it. The app is four files that deploy together: `index.html`,
+`styles.css`, `app.js`, and your `config.js`.
+
+The deployed copy of `app.js` is minified so the live page's code is hard to read. To build
+it, run `python3 tools/minify-server.py 8779`, open http://localhost:8779/tools/minify.html,
+and deploy the files it writes to `dist/`.
 
 `config.js` is gitignored and must never be committed.
 
@@ -72,6 +76,7 @@ app.js         all app logic: AI calls, battle, speech input, debrief
 config.js      Supabase URL and publishable key (gitignored, copy from config.example.js)
 supabase/      Edge Function that holds the Gemini key, and the database schema
 postman/       collection that tests the live backend
+tools/         builds the minified app.js that gets deployed, into dist/
 docs/          prompts, setup guides, learnings, post drafts
 assets/        1-pager and infographics
 ```

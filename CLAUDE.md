@@ -77,8 +77,13 @@ arrives with session history since `sessions.user_id` needs a real user anyway.
 sends `{task, input}` where task is `analyze`, `questions`, `grade` or `debrief`, and the function
 only runs those four prompts with fixed token budgets. The old direct to Google mode with a key in
 `config.js` is gone. The difficulty ladders stay in `app.js` because the progress text shows them.
-The page is marked "© 2026 Raksha Rakyan. All rights reserved." and the repo has a proprietary
-`LICENSE`.
+The page footer reads "Raksha Rakyan 🎀" and the repo has a proprietary `LICENSE`.
+
+**The deployed `app.js` is minified.** GitHub keeps the readable `app.js`; Replit gets a copy
+minified with Terser (top level names included), built into `dist/` (gitignored) by
+`tools/minify.html` served from `tools/minify-server.py`. Every deploy ships `dist/app.js`, not
+the root `app.js`. The Replit editor does not reliably save pasted code to disk, so files are
+written from Replit's Shell with a base64 paste, checked with `md5sum`, then republished.
 
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 

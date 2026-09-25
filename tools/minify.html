@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Minify app.js</title></head>
+<body>
+<!-- Minifies app.js with Terser and saves it to dist/ through
+     tools/minify-server.py. toplevel is safe because nothing in index.html
+     calls an app.js function by name. -->
+<pre id="out">Minifying</pre>
+<script src="https://cdn.jsdelivr.net/npm/terser@5.31.6/dist/bundle.min.js"></script>
+<script>
+(async () => {
+  const src = await (await fetch("/app.js", { cache: "no-store" })).text();
+  const result = await Terser.minify(src, { toplevel: true, compress: true, mangle: true, format: { comments: false } });
+  await fetch("/save-app-js", { method: "POST", body: result.code });
+  document.getElementById("out").textContent =
+    "Saved dist/app.js, " + src.length + " to " + result.code.length + " characters.";
+})().catch(e => { document.getElementById("out").textContent = "Failed: " + e.message; });
+</script>
+</body>
+</html>
