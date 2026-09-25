@@ -1,7 +1,8 @@
 # Postman tests
 
 `prepwise.postman_collection.json` tests the live Prepwise backend: the Supabase Edge
-Function that holds the Gemini key and proxies to Google.
+Function that holds the Gemini key, builds the prompts and calls Google. Each request
+sends a task name and its inputs, the same way the app does, never a prompt.
 
 ## Run it
 

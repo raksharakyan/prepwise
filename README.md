@@ -55,17 +55,13 @@ No build step. The app is four files that deploy together: `index.html`, `styles
 
 `config.js` is gitignored and must never be committed.
 
-### On the API key
+### On the API key and the prompts
 
-The key is read from `config.js` rather than typed into the interface, and it is not
-written to localStorage. That keeps it out of the UI and out of version control, but
-it does not keep it out of the browser: anyone who can load a deployed copy of the
-page can read `config.js`.
-
-So this arrangement is for local runs and demo recordings. To deploy publicly, the
-Gemini call moves into a Supabase Edge Function that holds the key as a server side
-secret, and the page calls that function instead of calling Google directly. Prompt 2
-in `docs/lovable-build-prompt.md` covers it.
+The Gemini key never reaches the browser. It lives as a secret on the Supabase Edge
+Function in `supabase/functions/gemini/`, and the page calls that function. The function
+also owns the four AI prompts: the page sends only a task name and its inputs (the job
+description, a transcript, the scores), so the prompts are not readable from the page
+source. Setup is in `docs/supabase-setup.md`.
 
 ## Repo layout
 
@@ -79,3 +75,8 @@ postman/       collection that tests the live backend
 docs/          prompts, setup guides, learnings, post drafts
 assets/        1-pager and infographics
 ```
+
+## Copyright
+
+© 2026 Raksha Rakyan. All rights reserved. Prepwise, including its code, prompts, design
+and documentation, is not open source. See `LICENSE`.

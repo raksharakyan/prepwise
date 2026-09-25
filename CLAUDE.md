@@ -63,7 +63,7 @@ Three things that broke during the swap, documented in `docs/ai-prompts.md`:
   20 question session down to 5. Retry 429 and 5xx with exponential backoff.
 
 **The key is now server side.** As of 2026-09-24 the app calls a Supabase Edge Function named
-`gemini`, which holds `GEMINI_API_KEY` as a project secret and proxies to Google. No browser ever
+`gemini`, which holds `GEMINI_API_KEY` as a project secret and calls Google. No browser ever
 sees the key. Verified end to end: the function reaches Gemini, the page calls it cross origin,
 and the response parses. Setup steps are in `docs/supabase-setup.md`.
 
@@ -71,6 +71,14 @@ and the response parses. Setup steps are in `docs/supabase-setup.md`.
 Supabase publishable key, which ships in the page. Anyone who reads it can call the function and
 spend the Gemini quota. Closing this means checking for a signed in user inside the function, which
 arrives with session history since `sessions.user_id` needs a real user anyway.
+
+**The prompts are server side too.** As of 2026-09-25 the four prompts are built inside the
+`gemini` function, not in `app.js`, so they cannot be read from the live page's source. The page
+sends `{task, input}` where task is `analyze`, `questions`, `grade` or `debrief`, and the function
+only runs those four prompts with fixed token budgets. The old direct to Google mode with a key in
+`config.js` is gone. The difficulty ladders stay in `app.js` because the progress text shows them.
+The page is marked "© 2026 Raksha Rakyan. All rights reserved." and the repo has a proprietary
+`LICENSE`.
 
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 

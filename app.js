@@ -2,7 +2,6 @@
 
 /* ---------------- state ---------------- */
 const S = {
-  key: "",
   jd: "",
   analysis: null,
   roundType: "",
@@ -20,13 +19,13 @@ const S = {
   listening: false
 };
 
-const MODEL = "gemini-3.6-flash";
 const ROUNDS = ["Technical/DSA", "System Design", "Mixed"];
 
 // Difficulty follows the level of the role. Before this, every session climbed
 // the same ladder up to "trade offs and depth", so even a coding intern job
 // ended on amortized complexity and scoping rules. Each batch takes the next
-// rung of its level's ladder.
+// rung of its level's ladder. The rung is shown in the progress text, so the
+// ladders live here; the rest of each prompt is built by the Edge Function.
 const LEVELS = ["Entry", "Mid", "Senior"];
 const LADDERS = {
   Entry:  ["the very basics, like a first lesson", "simple everyday usage", "small practical examples",
@@ -36,11 +35,6 @@ const LADDERS = {
            "trade offs and depth", "trickier practical cases", "harder edge cases"],
   Senior: ["fundamentals and warm up", "core working knowledge", "applied problem solving",
            "trade offs and depth", "hard edge cases", "senior level depth"]
-};
-const LEVEL_GUIDANCE = {
-  Entry:  "The candidate is entry level: a student, recent graduate or career changer. Every question must be answerable by someone who has studied the basics. Use plain language, prefer everyday examples, and avoid advanced algorithms, formal complexity analysis and specialist jargon.",
-  Mid:    "The candidate has a few years of experience. Expect solid working knowledge and practical judgment, not specialist depth.",
-  Senior: "The candidate is senior. Expect depth, trade offs and edge cases."
 };
 
 const $ = id => document.getElementById(id);
@@ -57,11 +51,11 @@ const setErr = (id, msg) => { $(id).textContent = msg || ""; };
 // looks identical to a hang.
 let onRetry = null;
 
-async function gemini(prompt, maxTokens, attempt) {
+async function gemini(task, input, attempt) {
   attempt = attempt || 1;
   const MAX_ATTEMPTS = 6;
   try {
-    const out = await geminiOnce(prompt, maxTokens);
+    const out = await geminiOnce(task, input);
     if (onRetry) onRetry("");
     return out;
   } catch (e) {
@@ -71,46 +65,28 @@ async function gemini(prompt, maxTokens, attempt) {
         onRetry("Gemini is busy. Retrying, attempt " + (attempt + 1) + " of " + MAX_ATTEMPTS + ".");
       }
       await new Promise(r => setTimeout(r, wait));
-      return gemini(prompt, maxTokens, attempt + 1);
+      return gemini(task, input, attempt + 1);
     }
     if (onRetry) onRetry("");
     throw e;
   }
 }
 
-// Two ways to reach Gemini. Through the Supabase Edge Function when one is
-// configured, which is the only arrangement where the API key never reaches a
-// browser, or straight to Google with a local key for development. The function
-// returns Gemini's response body verbatim, so everything below this is identical
-// either way.
-function useProxy() {
+// Every call goes through the Supabase Edge Function, which holds the API key
+// and builds the prompt from the task name and inputs sent here. The prompts
+// live only on the server, so they are not readable from the page source. The
+// function returns Gemini's response body verbatim.
+function hasBackend() {
   return !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
 }
 
-async function geminiOnce(prompt, maxTokens) {
-  const viaProxy = useProxy();
-
-  const url = viaProxy
-    ? CFG.SUPABASE_URL.replace(/\/+$/, "") + "/functions/v1/gemini"
-    : "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL +
-      ":generateContent?key=" + encodeURIComponent(S.key);
-
-  const headers = { "Content-Type": "application/json" };
-  if (viaProxy) headers["Authorization"] = "Bearer " + CFG.SUPABASE_ANON_KEY;
-
-  const payload = viaProxy
-    ? { prompt: prompt, maxOutputTokens: maxTokens || 2048 }
-    : {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: maxTokens || 2048,
-          responseMimeType: "application/json",
-          // Gemini 3.x models think by default and those tokens count against
-          // maxOutputTokens, which truncates the reply before any JSON is written.
-          thinkingConfig: { thinkingBudget: 0 }
-        }
-      };
+async function geminiOnce(task, input) {
+  const url = CFG.SUPABASE_URL.replace(/\/+$/, "") + "/functions/v1/gemini";
+  const headers = {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + CFG.SUPABASE_ANON_KEY
+  };
+  const payload = { task: task, input: input };
 
   // Without this a stalled connection leaves the button saying "Analyzing"
   // with no error and no way back.
@@ -137,8 +113,8 @@ async function geminiOnce(prompt, maxTokens) {
   if (!res.ok) {
     let detail = "";
     try { detail = (await res.json()).error.message; } catch (e) { detail = await res.text(); }
-    if (res.status === 400 && /API key/i.test(detail)) throw new Error("That API key was rejected. Check it at aistudio.google.com/apikey.");
-    if (res.status === 404) throw new Error("The model " + MODEL + " is not available to this key. Gemini retires older models, check aistudio.google.com for the current one.");
+    if (res.status === 400 && /API key/i.test(detail)) throw new Error("The Gemini API key on the backend was rejected. Check the GEMINI_API_KEY secret in Supabase.");
+    if (res.status === 404) throw new Error("The AI backend could not find the Gemini model. Gemini retires older models, check GEMINI_MODEL in Supabase.");
     const err = new Error(res.status === 429
       ? "Gemini rate limit hit. Waiting before retrying."
       : "Gemini returned " + res.status + ": " + detail);
@@ -167,14 +143,12 @@ async function geminiOnce(prompt, maxTokens) {
 }
 
 /* ---------------- setup screen ---------------- */
-// The key comes from config.js, which is gitignored and never committed.
-// It is deliberately not entered through the interface and not persisted
-// to localStorage. See the deployment note in README.md.
+// config.js holds the Supabase URL and publishable key. It is gitignored and
+// never committed. The Gemini key is never in the browser at all.
 const CFG = window.PREPWISE_CONFIG || {};
-S.key = (CFG.GEMINI_API_KEY || "").trim();
-if (!useProxy() && !S.key) {
+if (!hasBackend()) {
   setErr("err-setup",
-    "No AI backend configured.\n\nEither set SUPABASE_URL and SUPABASE_ANON_KEY in config.js to call through the Edge Function, or set GEMINI_API_KEY for a direct local call. Copy config.example.js to config.js to start.");
+    "No AI backend configured.\n\nSet SUPABASE_URL and SUPABASE_ANON_KEY in config.js. Copy config.example.js to config.js to start.");
   $("btn-analyze").disabled = true;
 }
 
@@ -233,7 +207,7 @@ document.querySelectorAll("[data-example]").forEach(b => b.addEventListener("cli
   box.scrollTop = 0;
   // Clear a stale "paste a fuller job description" message, but keep the
   // "no AI backend configured" one, which explains why Analyze is disabled.
-  if (useProxy() || S.key) setErr("err-setup", "");
+  if (hasBackend()) setErr("err-setup", "");
   $("btn-analyze").focus();
 }));
 
@@ -248,7 +222,7 @@ $("file").addEventListener("change", e => {
 $("btn-analyze").addEventListener("click", async () => {
   setErr("err-setup", "");
   S.jd = $("jd").value.trim();
-  if (!useProxy() && !S.key) return setErr("err-setup", "No AI backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY, or GEMINI_API_KEY, in config.js and reload.");
+  if (!hasBackend()) return setErr("err-setup", "No AI backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js and reload.");
   if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
 
   const btn = $("btn-analyze");
@@ -256,13 +230,7 @@ $("btn-analyze").addEventListener("click", async () => {
   btn.textContent = "Analyzing";
   onRetry = msg => setErr("err-setup", msg);
   try {
-    S.analysis = await gemini(
-      'You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\n\n' +
-      'Return ONLY a raw JSON object, no markdown fences, no commentary, with exactly these keys:\n' +
-      '{"round_type": one of "Technical/DSA" or "System Design" or "Mixed", "level": one of "Entry" or "Mid" or "Senior", judged from the experience and responsibilities asked for, "reasoning": one or two sentences explaining the call, "topics": an array of 4 to 7 specific technical topics to focus on}\n\n' +
-      'JOB DESCRIPTION:\n' + S.jd,
-      1024
-    );
+    S.analysis = await gemini("analyze", { jd: S.jd });
     if (!ROUNDS.includes(S.analysis.round_type)) S.analysis.round_type = "Mixed";
     if (!Array.isArray(S.analysis.topics)) S.analysis.topics = [];
     S.roundType = S.analysis.round_type;
@@ -347,7 +315,16 @@ $("btn-generate").addEventListener("click", async () => {
     $("gen-status").textContent = "Batch " + (i + 1) + " of " + batches + ", " + hints[Math.min(i, hints.length - 1)];
     const want = Math.min(perBatch, S.count - S.questions.length);
     try {
-      const batch = await gemini(buildBatchPrompt(i, batches, want, hints[Math.min(i, hints.length - 1)]), 4096);
+      const batch = await gemini("questions", {
+        roundType: S.roundType,
+        level: S.level,
+        topics: S.analysis.topics,
+        batch: i,
+        total: batches,
+        want: want,
+        hint: hints[Math.min(i, hints.length - 1)],
+        speech: S.speech
+      });
       const clean = (Array.isArray(batch) ? batch : []).filter(validQ).slice(0, want).map(placeCorrectAnswer);
       if (!clean.length) throw new Error("Batch " + (i + 1) + " came back empty.");
       S.questions = S.questions.concat(clean);
@@ -385,21 +362,6 @@ $("btn-generate").addEventListener("click", async () => {
   renderQuestion();
   show("s-battle");
 });
-
-function buildBatchPrompt(i, total, want, hint) {
-  const speechLine = S.speech
-    ? 'Exactly ONE question in this batch must have "type": "speech". The rest are "mcq".'
-    : 'Every question must have "type": "mcq".';
-  return 'You are an expert technical interviewer writing questions for a ' + S.roundType + ' interview round.\n\n' +
-    'Focus topics: ' + (S.analysis.topics.join(", ") || "core fundamentals") + '\n' +
-    'This is batch ' + (i + 1) + ' of ' + total + '. Difficulty for this batch: ' + hint + '.\n' +
-    (LEVEL_GUIDANCE[S.level] || LEVEL_GUIDANCE.Mid) + '\n' +
-    'Write ' + want + ' questions. Do not repeat questions from earlier batches.\n\n' +
-    speechLine + '\n\n' +
-    'Never write options such as "All of the above", "None of the above" or "Both A and B", and never refer to an option by its letter or position anywhere, including in the explanation. The options will be shown in a different order.\n\n' +
-    'Return ONLY a raw JSON array, no markdown fences, no commentary. Each element:\n' +
-    '{"question": the question text, "type": "mcq" or "speech", "options": array of exactly 4 short answer strings (empty array when type is speech), "correct_index": 0-based index of the right option (use -1 when type is speech), "explanation": for mcq why the right answer is right, for speech the key points a strong spoken answer must cover, "category": a short topic label such as "Arrays" or "Caching"}';
-}
 
 /* ---------------- answer placement ----------------
    Language models put the right answer in the first couple of slots far more
@@ -535,16 +497,12 @@ function lockSpeechInput(locked) {
 }
 
 async function gradeSpeech(q, text) {
-  const g = await gemini(
-    'You are grading a candidate\'s spoken answer in a technical interview. Be fair but rigorous, and judge it against what is expected at ' + (S.level || "Mid") + ' level.\n\n' +
-    'QUESTION: ' + q.question + '\n\n' +
-    'KEY POINTS A STRONG ANSWER COVERS: ' + q.explanation + '\n\n' +
-    'CANDIDATE TRANSCRIPT: ' + text + '\n\n' +
-    'The transcript came from speech to text, so ignore grammar, filler words, and transcription noise. Judge the substance.\n\n' +
-    'Return ONLY a raw JSON object, no markdown fences, no commentary:\n' +
-    '{"score": integer 0 to 100, "feedback": two or three sentences on what landed and what was missing}',
-    1024
-  );
+  const g = await gemini("grade", {
+    level: S.level,
+    question: q.question,
+    keyPoints: q.explanation,
+    transcript: text
+  });
   return {
     score: Math.max(0, Math.min(100, parseInt(g.score, 10) || 0)),
     feedback: g.feedback || ""
@@ -789,32 +747,21 @@ async function runDebrief() {
   ).join("; ");
 
   // Weak categories are worked out here, from the scores, and handed to the
-  // model. Asked for "2 to 3 focus areas" with nothing to go on, it invented
-  // weaknesses for a perfect score, including topics the session never tested.
+  // backend. Asked for "2 to 3 focus areas" with nothing to go on, the model
+  // invented weaknesses for a perfect score, including topics never tested.
   const WEAK_BELOW = 70;
   const pctOf = name => Math.round(cats[name].got / cats[name].total * 100);
   const weak = Object.keys(cats).filter(n => pctOf(n) < WEAK_BELOW).sort((x, y) => pctOf(x) - pctOf(y));
-  const nextLevel = { Entry: "Mid", Mid: "Senior" }[S.level];
-  const n = S.results.length;
 
   try {
-    const d = await gemini(
-      'You are a technical interview coach writing a short debrief for a candidate who just finished a ' + S.roundType + ' practice session at ' + (S.level || "Mid") + ' level.\n\n' +
-      'Focus topics for the role: ' + (S.analysis.topics.join(", ") || "general") + '\n' +
-      'Per question results, formatted as category/type/outcome: ' + summary + '\n' +
-      'This was a ' + n + ' question session' + (n < 10 ? ', which is only an early read, so do not overstate conclusions' : '') + '.\n' +
-      'Categories scored under ' + WEAK_BELOW + ' percent: ' + (weak.length ? weak.map(c => c + ' (' + pctOf(c) + '%)').join(", ") : "none") + '\n\n' +
-      'Rules. "focus_areas" may only contain categories from that under ' + WEAK_BELOW + ' percent list, and must be an empty array when the list is none. Never name a topic the session did not test. ' +
-      '"strengths" are categories they did well in, or an empty array if there are none. ' +
-      (weak.length
-        ? '"tip" is one concrete step for the weakest category.'
-        : '"tip" should stretch them, since nothing was weak' + (nextLevel
-            ? ', for example trying ' + nextLevel + ' level next.'
-            : ', for example a longer 20 question session or a different round type.')) + '\n\n' +
-      'Do not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no commentary:\n' +
-      '{"overall_readiness": two or three sentences on how ready they are for this round, "strengths": array of short strings, "focus_areas": array of 0 to 3 short strings, "tip": one concrete thing to do before the next session}',
-      1024
-    );
+    const d = await gemini("debrief", {
+      roundType: S.roundType,
+      level: S.level,
+      topics: S.analysis.topics,
+      summary: summary,
+      answered: S.results.length,
+      weak: weak.map(c => ({ category: c, pct: pctOf(c) }))
+    });
     // The scores decide whether there are focus areas, not the model. With
     // nothing weak the section is never shown, whatever came back; with weak
     // categories and an empty reply, fall back to naming them directly.

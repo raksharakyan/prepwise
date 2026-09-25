@@ -1,7 +1,9 @@
 # Prepwise AI prompts
 
-The four prompts the app sends to Gemini. Every one asks for raw JSON only, and the
-client strips stray markdown fences before parsing. Keep these stable when porting,
+The four prompts Prepwise sends to Gemini. They are built inside the Supabase Edge
+Function (`supabase/functions/gemini/index.ts`), not in the page, so they never ship to
+a browser: the page sends a task name and its inputs. Every one asks for raw JSON only,
+and the client strips stray markdown fences before parsing. Keep these stable when porting,
 they are the part of the prototype that took the most tuning.
 
 ## 1. Job description analysis

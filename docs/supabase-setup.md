@@ -48,10 +48,19 @@ Left sidebar, **Edge Functions**, then **Create a new function**. Name it exactl
 `gemini`, because the client builds the URL from that name. Paste the whole of
 `supabase/functions/gemini/index.ts` and deploy.
 
-The function is a thin proxy. It takes `{prompt, maxOutputTokens}`, adds the key,
-calls Gemini, and returns Gemini's response body and status code untouched. That
-means the client keeps its existing parsing, retries and error handling, and real
-Gemini errors such as 429 and 503 still reach it.
+The function takes `{task, input}`, where task is one of `analyze`, `questions`,
+`grade` or `debrief`. It builds that task's prompt from the input, adds the key, calls
+Gemini, and returns Gemini's response body and status code untouched. That means the
+client keeps its existing parsing, retries and error handling, and real Gemini errors
+such as 429 and 503 still reach it.
+
+The prompts live only in this function, never in the page, so nobody can read them
+from View Source. It also means the function only runs Prepwise's own prompts: a
+caller cannot send an arbitrary prompt or choose its own token budget.
+
+Whenever `index.ts` changes, paste the new version into the dashboard and deploy it
+before redeploying the site, since the page and the function must agree on the
+request format.
 
 ## 5. Point the app at it
 
@@ -66,9 +75,6 @@ window.PREPWISE_CONFIG = {
   SUPABASE_ANON_KEY: "eyJhbGci..."
 };
 ```
-
-Delete `GEMINI_API_KEY` from `config.js` once this works. Its presence is what keeps
-the old direct-to-Google path alive.
 
 The anon key is safe in the browser. It is a public client key, it is meant to ship
 in frontend code, and row level security is what actually protects the data. The
@@ -86,6 +92,7 @@ If it fails, open the browser console and look at the network request to
 | Status | Meaning |
 | --- | --- |
 | 401 | The anon key is wrong or missing from `config.js` |
+| 400 with "task must be one of" | The page and the function are out of step, redeploy both |
 | 404 | The function is not named exactly `gemini` |
 | 500 with "GEMINI_API_KEY is not set" | The secret was not saved, or the function needs redeploying after adding it |
 | 429 | Gemini daily quota is gone, about 20 requests a day on the free tier |
