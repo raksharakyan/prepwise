@@ -30,6 +30,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [x] AI grading of spoken answers (0 to 100 score plus written feedback)
 - [x] Redo and Show Correct Answer on spoken questions: the first attempt is the scored one and alone moves HP and the debrief; up to two redos are graded as practice only; the reference answer can be revealed any time and is revealed automatically once the last redo is graded
 - [x] Boss-battle style UI: HP bars, category tags per question, live progress
+- [x] A reload does not lose the round: the session (screen, question, HP, answers, a half typed answer, and the written debrief) is saved to the tab's sessionStorage and restored on load. A reload mid generation goes back to the analysis screen with the choices kept
 - [x] AI-generated debrief screen with category breakdown and strengths/focus areas/tip
 - [x] Swap AI provider from Claude API (only free inside Claude.ai artifacts) to Google AI Studio's Gemini API using a real free-tier API key, so the app works once deployed outside Claude.ai
 - [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
