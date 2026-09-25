@@ -74,3 +74,10 @@ Each entry has what it is, why it matters, and anything it depends on. Once a fe
 - **What:** Add a third question type: a coding problem with an in-browser editor (for example Monaco), language selection, and hidden test cases. Gemini reviews the code for correctness, complexity and style.
 - **Why:** DSA rounds are usually about writing code, not picking an answer from a list.
 - **Depends on:** A safe way to run the code, either a sandboxed runner such as Judge0 or in-browser runtimes like Pyodide for Python. Gemini-only review works as a first step.
+
+## 10. Career helper: CV to roles to prep
+**Status:** 💡 Idea · **Added:** 2026-09-25
+
+- **What:** A separate Career helper section next to the main interview prep. The user uploads a CV, and Gemini reads their skills, experience and level, then suggests the job roles that fit best (for example "Junior backend developer" or "Data analyst"), each with a short reason. The user picks a role, and Prepwise builds a question set for it the same way it does for a pasted job description.
+- **Why:** Not everyone has a specific job description yet. Some people are asking "what should I even apply for?", and this turns their CV into a direction plus prep for it.
+- **Depends on:** PDF parsing (#1), since most CVs are PDFs. A CV holds personal details (name, phone, email, address), so remove or skip them before the text goes to Gemini, and store nothing without sign in (#4). It pairs well with #7, since the CV already shows the current company and role.
