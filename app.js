@@ -259,6 +259,7 @@ $("btn-analyze").addEventListener("click", async () => {
   S.jd = $("jd").value.trim();
   if (!hasBackend()) return setErr("err-setup", "No AI backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js and reload.");
   if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
+  S.nonTech = false;
 
   const btn = $("btn-analyze");
   btn.disabled = true;
@@ -286,9 +287,10 @@ $("btn-analyze").addEventListener("click", async () => {
 });
 
 /* ---------------- non tech roles ----------------
-   Prepwise only preps technical rounds, so a sales or HR job description
-   gets a friendly note instead of a set of made up technical questions.
-   The classifier can be wrong, so the user can still carry on. */
+   Prepwise is built for technical rounds, so a sales or HR job description
+   first gets a friendly note. The user can still practise it: the round
+   type becomes the role itself, since DSA and System Design mean nothing
+   for a mutual fund advisor, and the set defaults to multiple choice. */
 function showNonTech() {
   const role = S.analysis.role_title ? esc(S.analysis.role_title) : "";
   $("nontech-title").innerHTML = role
@@ -309,13 +311,18 @@ $("btn-paste-again").onclick = () => {
 
 $("btn-nontech-anyway").onclick = () => {
   hideNonTech();
+  S.nonTech = true;
+  // The backend caps the round type at 50 characters.
+  S.roundType = (S.analysis.role_title || "Role knowledge").slice(0, 50);
+  S.speech = false;
   renderAnalysis();
   show("s-analysis");
 };
 
 /* ---------------- analysis screen ---------------- */
 function renderAnalysis() {
-  $("a-round").textContent = S.analysis.round_type + " round";
+  $("a-round").textContent = (S.nonTech ? S.roundType : S.analysis.round_type) + " round";
+  $("a-override-wrap").classList.toggle("hidden", !!S.nonTech);
   $("a-reason").textContent = S.analysis.reasoning || "";
 
   $("a-topics").innerHTML = S.analysis.topics
@@ -961,7 +968,7 @@ $("btn-restart").onclick = () => {
    closed one starts fresh. Storage can be unavailable (private windows,
    blocked site data), so every access is guarded and the app runs without it. */
 const SAVE_KEY = "prepwise.session";
-const SAVED_FIELDS = ["jd", "analysis", "roundType", "level", "count", "speech", "questions", "idx",
+const SAVED_FIELDS = ["jd", "analysis", "nonTech", "roundType", "level", "count", "speech", "questions", "idx",
   "youHp", "bossHp", "results", "answered", "picked", "redosLeft", "revealed", "scored", "lastPanel", "debrief"];
 let restored = false;
 
