@@ -968,6 +968,11 @@ $("btn-restart").onclick = () => {
    closed one starts fresh. Storage can be unavailable (private windows,
    blocked site data), so every access is guarded and the app runs without it. */
 const SAVE_KEY = "prepwise.session";
+// The build stamp from app.js?v=..., so a round saved by an older deploy is
+// dropped instead of restored into newer code.
+const BUILD = (() => {
+  try { return new URL(document.currentScript.src).searchParams.get("v") || ""; } catch (e) { return ""; }
+})();
 const SAVED_FIELDS = ["jd", "analysis", "nonTech", "roundType", "level", "count", "speech", "questions", "idx",
   "youHp", "bossHp", "results", "answered", "picked", "redosLeft", "revealed", "scored", "lastPanel", "debrief"];
 let restored = false;
@@ -978,6 +983,7 @@ function save() {
     const state = {};
     SAVED_FIELDS.forEach(k => { state[k] = S[k]; });
     sessionStorage.setItem(SAVE_KEY, JSON.stringify({
+      build: BUILD,
       screen: screen,
       jdDraft: $("jd").value,
       transcript: $("transcript").value,
@@ -989,7 +995,7 @@ function save() {
 function restore() {
   let saved = null;
   try { saved = JSON.parse(sessionStorage.getItem(SAVE_KEY)); } catch (e) {}
-  if (!saved || !saved.S) return;
+  if (!saved || !saved.S || saved.build !== BUILD) return;
   $("jd").value = saved.jdDraft || "";
   SAVED_FIELDS.forEach(k => { if (k in saved.S) S[k] = saved.S[k]; });
   $("transcript").value = saved.transcript || "";

@@ -84,7 +84,7 @@ The page footer reads "Raksha Rakyan 🎀" and the repo has a proprietary `LICEN
 **The deployed `app.js` is minified.** GitHub keeps the readable `app.js`; Replit gets a copy
 minified with Terser (top level names included), built into `dist/` (gitignored) by
 `tools/minify.html` served from `tools/minify-server.py`. Every deploy ships `dist/app.js`, not
-the root `app.js`. The Replit editor does not reliably save pasted code to disk, so files are
+the root `app.js`. The build also stamps `index.html`, replacing `?v=dev` on `styles.css` and `app.js` with a hash of the build, so each deploy forces browsers past their cache, and a round saved in sessionStorage by an older deploy is dropped rather than restored. The Replit editor does not reliably save pasted code to disk, so files are
 written from Replit's Shell with a base64 paste, checked with `md5sum`, then republished.
 
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:

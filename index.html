@@ -7,7 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="styles.css">
+<!-- ?v=dev is replaced with a content hash in the deployed copy, so every
+     deploy forces browsers to fetch fresh files instead of cached ones. -->
+<link rel="stylesheet" href="styles.css?v=dev">
 </head>
 <body>
 <div class="wrap">
@@ -159,6 +161,6 @@
 <!-- config.js holds the Supabase URL and publishable key. It is gitignored,
      and must load before app.js, which reads it on startup. -->
 <script src="config.js" onerror="window.PREPWISE_CONFIG=null"></script>
-<script src="app.js"></script>
+<script src="app.js?v=dev"></script>
 </body>
 </html>
