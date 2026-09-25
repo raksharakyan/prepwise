@@ -54,12 +54,12 @@ Each entry has what it is, why it matters, and anything it depends on. Once a fe
 - **Why:** This was the original plan. It was deferred because course access never arrived.
 - **Depends on:** Lovable access. The spec is in `docs/lovable-build-prompt.md`.
 
-## 7. Baseline level from current company and salary
+## 7. Baseline level from current company and role
 **Status:** 💡 Idea · **Added:** 2026-09-25
 
-- **What:** Ask for the user's current company and salary, and use them to set a baseline difficulty that the job description then adjusts.
+- **What:** Ask for the user's current company and role, and use them to set a baseline difficulty that the job description then adjusts.
 - **Why:** The job description tells us about the role, but not where the candidate is starting from. A mid-level engineer applying for a senior role needs a different ladder from a new grad applying for the same role.
-- **Depends on:** Nothing. Salary is sensitive, so make both fields optional, send only a derived level (Entry, Mid or Senior) to Gemini rather than the raw figure, and store nothing without sign in (#4).
+- **Depends on:** Nothing. Both fields are optional, and nothing is stored without sign in (#4).
 
 ## 8. Company specific questions from real interview reports
 **Status:** 💡 Idea · **Added:** 2026-09-25
