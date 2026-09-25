@@ -38,10 +38,13 @@ const LADDERS = {
 };
 
 const $ = id => document.getElementById(id);
+let screen = "s-setup";
 const show = id => {
   ["s-setup","s-analysis","s-gen","s-battle","s-debrief"].forEach(s => $(s).classList.add("hidden"));
   $(id).classList.remove("hidden");
   window.scrollTo(0, 0);
+  screen = id;
+  save();
 };
 const setErr = (id, msg) => { $(id).textContent = msg || ""; };
 
@@ -232,6 +235,7 @@ document.querySelectorAll("[data-example]").forEach(b => b.addEventListener("cli
   if (current && !isExample && !confirm("Replace the job description you entered with this example?")) return;
   box.value = EXAMPLE_JDS[b.dataset.example];
   box.scrollTop = 0;
+  save();
   // Clear a stale "paste a fuller job description" message, but keep the
   // "no AI backend configured" one, which explains why Analyze is disabled.
   if (hasBackend()) setErr("err-setup", "");
@@ -242,9 +246,11 @@ $("file").addEventListener("change", e => {
   const f = e.target.files[0];
   if (!f) return;
   const r = new FileReader();
-  r.onload = ev => { $("jd").value = ev.target.result; };
+  r.onload = ev => { $("jd").value = ev.target.result; save(); };
   r.readAsText(f);
 });
+
+$("jd").addEventListener("input", save);
 
 $("btn-analyze").addEventListener("click", async () => {
   setErr("err-setup", "");
@@ -314,6 +320,7 @@ function renderAnalysis() {
     ? (hasSpeechApi() ? "Your browser supports voice input. You can always type instead."
                       : "This browser does not support voice input, so spoken questions fall back to typing.")
     : "";
+  save();
 }
 
 $("btn-back").onclick = () => show("s-setup");
@@ -361,6 +368,7 @@ function saveSeen(questions) {
 $("btn-generate").addEventListener("click", async () => {
   setErr("err-gen", "");
   S.questions = [];
+  S.debrief = null;
   resetPositionBags();
   show("s-gen");
 
@@ -491,9 +499,11 @@ const lowerHp = (hp, n) => (hp - n < 1e-6 ? 0 : hp - n);
 function hitBoss(n) { S.bossHp = lowerHp(S.bossHp, n); }
 function hitYou(n)  { S.youHp  = lowerHp(S.youHp, n); }
 
-function renderQuestion() {
+// With restoring set, redraws the current question from saved state after a
+// reload, including an answer already given, instead of starting it fresh.
+function renderQuestion(restoring) {
   const q = S.questions[S.idx];
-  S.answered = false;
+  if (!restoring) S.answered = false;
   stopMic();
 
   // A knockout no longer ends the round: the user chose how many questions to
@@ -511,22 +521,28 @@ function renderQuestion() {
   if (q.type === "speech") {
     $("q-mcq").innerHTML = "";
     $("q-speech").classList.remove("hidden");
-    $("transcript").value = "";
     $("btn-submit-speech").disabled = false;
-    S.redosLeft = MAX_REDOS;
-    S.revealed = false;
-    S.scored = null;
-    S.lastPanel = null;
     lockSpeechInput(false);
     $("btn-mic").disabled = !hasSpeechApi();
     $("mic-status").textContent = hasSpeechApi() ? "Answer out loud, or type it below." : "Voice input is not available in this browser. Type your answer.";
+    if (restoring) {
+      restoreSpeech();
+    } else {
+      $("transcript").value = "";
+      S.redosLeft = MAX_REDOS;
+      S.revealed = false;
+      S.scored = null;
+      S.lastPanel = null;
+    }
   } else {
     $("q-speech").classList.add("hidden");
     $("q-mcq").innerHTML = q.options
       .map((o, i) => '<button class="opt" data-i="' + i + '">' + esc(o) + '</button>').join("");
     $("q-mcq").querySelectorAll(".opt").forEach(b => b.onclick = () => answerMcq(+b.dataset.i));
+    if (restoring && S.answered) paintMcqAnswer(q, S.picked);
   }
   paintHp();
+  save();
 }
 
 function paintHp() {
@@ -539,14 +555,9 @@ function paintHp() {
 function answerMcq(picked) {
   if (S.answered) return;
   S.answered = true;
+  S.picked = picked;
   const q = S.questions[S.idx];
   const right = picked === q.correct_index;
-
-  $("q-mcq").querySelectorAll(".opt").forEach((b, i) => {
-    b.disabled = true;
-    if (i === q.correct_index) b.classList.add("right");
-    else if (i === picked) b.classList.add("wrong");
-  });
 
   if (right) {
     hitBoss(damage());
@@ -558,6 +569,19 @@ function answerMcq(picked) {
   paintHp();
 
   S.results.push({ category: q.category || "General", type: "mcq", correct: right });
+  paintMcqAnswer(q, picked);
+  save();
+}
+
+// Marks the options and shows the explanation. Separate from answerMcq so a
+// reload can redraw an answered question without scoring it twice.
+function paintMcqAnswer(q, picked) {
+  const right = picked === q.correct_index;
+  $("q-mcq").querySelectorAll(".opt").forEach((b, i) => {
+    b.disabled = true;
+    if (i === q.correct_index) b.classList.add("right");
+    else if (i === picked) b.classList.add("wrong");
+  });
   showFeedback(
     right ? "Direct hit" : "You take damage",
     right ? "Correct. " + (q.explanation || "") : "Not quite. " + (q.explanation || "")
@@ -679,6 +703,27 @@ function renderSpeechPanel() {
   wireNext();
   if ($("btn-redo"))   $("btn-redo").onclick = startRedo;
   if ($("btn-reveal")) $("btn-reveal").onclick = () => { S.revealed = true; renderSpeechPanel(); };
+  save();
+}
+
+// Redraws a spoken question after a reload. An answer counts as graded only
+// once its feedback panel exists: a reload during grading loses that request,
+// so the attempt reopens with the answer still in the box, to submit again.
+function restoreSpeech() {
+  S.answered = !!S.lastPanel;
+  if (S.lastPanel) {
+    lockSpeechInput(true);
+    $("btn-submit-speech").disabled = true;
+    $("mic-status").textContent = S.redosLeft > 0
+      ? "Graded. Use Redo below to practise this one again."
+      : "Graded. No redos left for this question.";
+    renderSpeechPanel();
+  } else if (S.scored !== null) {
+    // A redo in progress: keep the panel with Next and any revealed answer.
+    const n = MAX_REDOS - S.redosLeft;
+    $("mic-status").textContent = "Practice attempt " + n + " of " + MAX_REDOS + ". Answer again.";
+    renderSpeechPanel();
+  }
 }
 
 function startRedo() {
@@ -701,6 +746,7 @@ function startRedo() {
 }
 
 $("btn-submit-speech").addEventListener("click", submitSpeech);
+$("transcript").addEventListener("input", save);
 
 function sessionEnding() {
   return S.idx === S.questions.length - 1;
@@ -761,6 +807,7 @@ function beginRecognition(Ctor) {
     for (let i = 0; i < ev.results.length; i++) spoken += ev.results[i][0].transcript;
     spoken = spoken.trim();
     $("transcript").value = base && spoken ? base + " " + spoken : (base || spoken);
+    save();
   };
 
   rec.onerror = ev => {
@@ -835,7 +882,9 @@ async function runDebrief() {
   const weak = Object.keys(cats).filter(n => pctOf(n) < WEAK_BELOW).sort((x, y) => pctOf(x) - pctOf(y));
 
   try {
-    const d = await gemini("debrief", {
+    // Kept once written, so reloading the debrief does not spend another
+    // Gemini request or come back with different wording.
+    const d = S.debrief || await gemini("debrief", {
       roundType: S.roundType,
       level: S.level,
       topics: S.analysis.topics,
@@ -843,6 +892,8 @@ async function runDebrief() {
       answered: S.results.length,
       weak: weak.map(c => ({ category: c, pct: pctOf(c) }))
     });
+    S.debrief = d;
+    save();
     // The scores decide whether there are focus areas, not the model. With
     // nothing weak the section is never shown, whatever came back; with weak
     // categories and an empty reply, fall back to naming them directly.
@@ -866,6 +917,56 @@ function listBlock(title, arr) {
 }
 
 $("btn-restart").onclick = () => {
-  S.questions = []; S.results = []; S.idx = 0; S.youHp = 100; S.bossHp = 100;
+  S.questions = []; S.results = []; S.idx = 0; S.youHp = 100; S.bossHp = 100; S.debrief = null;
   show("s-setup");
 };
+
+/* ---------------- surviving a reload ----------------
+   The session is saved to sessionStorage as it goes, so reloading the page
+   picks up on the same screen and question with the same HP, answers, and
+   any half typed answer. sessionStorage belongs to the tab: a new tab or a
+   closed one starts fresh. Storage can be unavailable (private windows,
+   blocked site data), so every access is guarded and the app runs without it. */
+const SAVE_KEY = "prepwise.session";
+const SAVED_FIELDS = ["jd", "analysis", "roundType", "level", "count", "speech", "questions", "idx",
+  "youHp", "bossHp", "results", "answered", "picked", "redosLeft", "revealed", "scored", "lastPanel", "debrief"];
+let restored = false;
+
+function save() {
+  if (!restored) return;
+  try {
+    const state = {};
+    SAVED_FIELDS.forEach(k => { state[k] = S[k]; });
+    sessionStorage.setItem(SAVE_KEY, JSON.stringify({
+      screen: screen,
+      jdDraft: $("jd").value,
+      transcript: $("transcript").value,
+      S: state
+    }));
+  } catch (e) {}
+}
+
+function restore() {
+  let saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem(SAVE_KEY)); } catch (e) {}
+  if (!saved || !saved.S) return;
+  $("jd").value = saved.jdDraft || "";
+  SAVED_FIELDS.forEach(k => { if (k in saved.S) S[k] = saved.S[k]; });
+  $("transcript").value = saved.transcript || "";
+
+  if (saved.screen === "s-battle" && S.questions.length) {
+    renderQuestion(true);
+    show("s-battle");
+  } else if (saved.screen === "s-debrief" && S.results.length) {
+    runDebrief();
+  } else if ((saved.screen === "s-analysis" || saved.screen === "s-gen") && S.analysis) {
+    // A reload during generation loses the batches in flight, so go back one
+    // step, where the choices are kept and one click builds the set again.
+    renderAnalysis();
+    show("s-analysis");
+  }
+}
+
+try { restore(); } catch (e) { console.warn("Could not restore the saved session", e); }
+restored = true;
+save();
