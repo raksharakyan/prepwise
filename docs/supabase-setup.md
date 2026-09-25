@@ -95,7 +95,7 @@ If it fails, open the browser console and look at the network request to
 | 400 with "task must be one of" | The page and the function are out of step, redeploy both |
 | 404 | The function is not named exactly `gemini` |
 | 500 with "GEMINI_API_KEY is not set" | The secret was not saved, or the function needs redeploying after adding it |
-| 429 | Gemini daily quota is gone, about 20 requests a day on the free tier |
+| 429 | Gemini quota is gone. The daily one (about 20 requests on the free tier) shows a friendly "resets at midnight Pacific" message in the app; per minute limits are retried automatically |
 | 503 | Gemini is busy, the client retries this automatically |
 
 Function logs are under **Edge Functions**, then your function, then **Logs**.

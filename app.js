@@ -111,8 +111,18 @@ async function geminiOnce(task, input) {
   }
 
   if (!res.ok) {
-    let detail = "";
-    try { detail = (await res.json()).error.message; } catch (e) { detail = await res.text(); }
+    const body = await res.text();
+    let detail = body;
+    try { detail = JSON.parse(body).error.message; } catch (e) {}
+    // The free tier allows about 20 requests a day. Once that is gone every
+    // retry fails the same way until the quota resets, so say so plainly
+    // instead of retrying. Short per minute limits are also 429s, but their
+    // quota id has no "PerDay", so those still retry below.
+    if (res.status === 429 && /PerDay/i.test(body)) {
+      const err = new Error(dailyLimitMessage());
+      err.daily = true;
+      throw err;
+    }
     if (res.status === 400 && /API key/i.test(detail)) throw new Error("The Gemini API key on the backend was rejected. Check the GEMINI_API_KEY secret in Supabase.");
     if (res.status === 404) throw new Error("The AI backend could not find the Gemini model. Gemini retires older models, check GEMINI_MODEL in Supabase.");
     const err = new Error(res.status === 429
@@ -140,6 +150,23 @@ async function geminiOnce(task, input) {
     if (m) { try { return JSON.parse(m[0]); } catch (e2) {} }
     throw new Error("Could not read Gemini's reply as JSON. Try again.");
   }
+}
+
+// Gemini's daily quota resets at midnight Pacific time. Shown in the viewer's
+// own time zone, since most viewers are not in California.
+function dailyLimitMessage() {
+  let when = "midnight Pacific time";
+  try {
+    const now = new Date();
+    const p = {};
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hourCycle: "h23",
+      hour: "numeric", minute: "numeric", second: "numeric" })
+      .formatToParts(now).forEach(x => { p[x.type] = +x.value; });
+    const sinceMidnight = (p.hour * 3600 + p.minute * 60 + p.second) * 1000;
+    const reset = new Date(now.getTime() + 86400000 - sinceMidnight);
+    when = reset.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " your time (midnight Pacific)";
+  } catch (e) {}
+  return "Prepwise has used up today's free AI allowance. It resets at " + when + ". Please try again after that.";
 }
 
 /* ---------------- setup screen ---------------- */
@@ -331,7 +358,7 @@ $("btn-generate").addEventListener("click", async () => {
     } catch (e) {
       // Short of a usable set, stop and surface the real reason.
       if (S.questions.length < 5) {
-        setErr("err-gen", e.message + "\n\nGo back and try again.");
+        setErr("err-gen", e.daily ? e.message : e.message + "\n\nGo back and try again.");
         return;
       }
       // Otherwise carry on with what we have, but say so rather than
