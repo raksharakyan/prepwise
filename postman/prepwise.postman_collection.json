@@ -1,6 +1,7 @@
 {
   "info": {
-    "name": "Prepwise AI backend",
+    "_postman_id": "7abfc525-e7a3-444a-9d81-bf688b74c6f3",
+    "name": "Prepwise AI backend v2",
     "description": "Tests the Prepwise Supabase Edge Function, which builds the prompts server side and calls Google Gemini. Requests send a task name and its inputs, never a prompt.\n\nRun the folder in order. Each request feeds the next the way the app does: the job description analysis supplies the round type and topics for question generation, and the generated spoken question is what gets graded.\n\nA full run costs 4 Gemini requests. The free tier allows roughly 20 a day, so do not run it in a loop. The first request is free: it checks the backend rejects calls without a key.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
