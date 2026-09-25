@@ -58,6 +58,15 @@ function questionsPrompt(i: Record<string, unknown>): Built {
   const batch = int(i.batch, 0, total - 1);
   const want = int(i.want, 1, 5);
   const topics = strList(i.topics);
+  // Questions already asked, in this session and recent ones on the same job
+  // description. "Do not repeat questions from earlier batches" alone never
+  // worked, since the model could not see them, so every set opened with
+  // near identical questions.
+  const avoid = strList(i.avoid, 60, 200);
+  const avoidBlock = avoid.length
+    ? 'These questions were already asked. Do not repeat them, reword them, or test the same fact in a different way:\n' +
+      avoid.map(q => '- ' + q).join("\n") + '\n\n'
+    : '';
   const speechLine = i.speech
     ? 'Exactly ONE question in this batch must have "type": "speech". The rest are "mcq".'
     : 'Every question must have "type": "mcq".';
@@ -68,8 +77,14 @@ function questionsPrompt(i: Record<string, unknown>): Built {
       'Focus topics: ' + (topics.join(", ") || "core fundamentals") + '\n' +
       'This is batch ' + (batch + 1) + ' of ' + total + '. Difficulty for this batch: ' + str(i.hint, 200) + '.\n' +
       LEVEL_GUIDANCE[level(i.level)] + '\n' +
-      'Write ' + want + ' questions. Do not repeat questions from earlier batches.\n\n' +
+      'Write ' + want + ' questions.\n\n' +
+      avoidBlock +
       speechLine + '\n\n' +
+      // Candidates found the wrong options easy to rule out, so the right one
+      // could be guessed without knowing the answer.
+      'Make every multiple choice question hard to guess. Each wrong option must be something a candidate at this level could genuinely believe: a common misconception, an off by one or boundary mistake, a closely related concept that does not apply here, or a correct idea used in the wrong situation. ' +
+      'The right option must not stand out: match the wrong options to it in length, detail, tone and grammar, and do not make it the only precise or the only fully qualified one. ' +
+      'No joke, absurd or off topic options, and no absolute words such as "always" or "never" that give a wrong option away.\n\n' +
       'Never write options such as "All of the above", "None of the above" or "Both A and B", and never refer to an option by its letter or position anywhere, including in the explanation. The options will be shown in a different order.\n\n' +
       'Return ONLY a raw JSON array, no markdown fences, no commentary. Each element:\n' +
       '{"question": the question text, "type": "mcq" or "speech", "options": array of exactly 4 short answer strings (empty array when type is speech), "correct_index": 0-based index of the right option (use -1 when type is speech), "explanation": for mcq why the right answer is right, for speech the key points a strong spoken answer must cover, "category": a short topic label such as "Arrays" or "Caching"}',

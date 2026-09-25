@@ -36,9 +36,22 @@ interview round.
 Focus topics: {TOPICS}
 This is batch {N} of {TOTAL}. Difficulty for this batch: {HINT}.
 {LEVEL_GUIDANCE}
-Write {COUNT} questions. Do not repeat questions from earlier batches.
+Write {COUNT} questions.
+
+These questions were already asked. Do not repeat them, reword them, or test the
+same fact in a different way:
+- {ALREADY_ASKED, one per line}
 
 Exactly ONE question in this batch must have "type": "speech". The rest are "mcq".
+
+Make every multiple choice question hard to guess. Each wrong option must be
+something a candidate at this level could genuinely believe: a common misconception,
+an off by one or boundary mistake, a closely related concept that does not apply
+here, or a correct idea used in the wrong situation. The right option must not stand
+out: match the wrong options to it in length, detail, tone and grammar, and do not
+make it the only precise or the only fully qualified one. No joke, absurd or off
+topic options, and no absolute words such as "always" or "never" that give a wrong
+option away.
 
 Never write options such as "All of the above", "None of the above" or "Both A and B",
 and never refer to an option by its letter or position anywhere, including in the
@@ -51,6 +64,17 @@ exactly 4 short answer strings (empty array when type is speech), "correct_index
 mcq why the right answer is right, for speech the key points a strong spoken answer
 must cover, "category": a short topic label such as "Arrays" or "Caching"}
 ```
+
+The already asked block is left out when there is nothing to avoid. It lists this
+session's earlier questions, then the ones this browser was asked in recent sessions on
+the same job description (kept in localStorage, 40 per job description), up to 60. The
+old line, "Do not repeat questions from earlier batches", never worked on its own because
+the model could not see those batches, so a 30 question set opened with the same
+questions as the 5 question demo. The focus topics are also shuffled each session, since
+their order steers which questions come first.
+
+The wrong option rules were added after candidates said the wrong options were easy to
+rule out, so the right answer could be guessed without knowing it.
 
 When spoken answers are switched off, replace the speech line with: `Every question
 must have "type": "mcq".`

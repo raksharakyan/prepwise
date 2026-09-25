@@ -326,6 +326,38 @@ function esc(s) {
 }
 
 /* ---------------- generation ---------------- */
+// Questions this browser has already been asked for a job description, so a
+// new session, or a longer one after the demo, does not open with the same
+// questions. Kept in localStorage per job description: it is only a
+// convenience, and everything works without it.
+const SEEN_KEY = "prepwise.seen";
+const SEEN_MAX = 40;
+
+function jdKey() {
+  let h = 0;
+  for (let i = 0; i < S.jd.length; i++) h = (h * 31 + S.jd.charCodeAt(i)) | 0;
+  return "jd" + h;
+}
+
+function loadSeen() {
+  try {
+    const all = JSON.parse(localStorage.getItem(SEEN_KEY)) || {};
+    return Array.isArray(all[jdKey()]) ? all[jdKey()] : [];
+  } catch (e) { return []; }
+}
+
+function saveSeen(questions) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SEEN_KEY)) || {};
+    const key = jdKey();
+    all[key] = questions.concat(all[key] || []).filter((q, i, a) => a.indexOf(q) === i).slice(0, SEEN_MAX);
+    // Keep the ten most recent job descriptions.
+    const keys = Object.keys(all);
+    if (keys.length > 10) keys.filter(k => k !== key).slice(0, keys.length - 10).forEach(k => delete all[k]);
+    localStorage.setItem(SEEN_KEY, JSON.stringify(all));
+  } catch (e) {}
+}
+
 $("btn-generate").addEventListener("click", async () => {
   setErr("err-gen", "");
   S.questions = [];
@@ -337,6 +369,11 @@ $("btn-generate").addEventListener("click", async () => {
   let shortfall = "";
   onRetry = msg => setErr("err-gen", msg);
   const hints = LADDERS[S.level] || LADDERS.Mid;
+  const seen = loadSeen();
+  // A fresh topic order each session, since the order steers which questions
+  // come first. Without it, everyone trying an example job description got
+  // the same opening questions.
+  const topics = shuffleInPlace(S.analysis.topics.slice());
 
   for (let i = 0; i < batches; i++) {
     $("gen-status").textContent = "Batch " + (i + 1) + " of " + batches + ", " + hints[Math.min(i, hints.length - 1)];
@@ -345,16 +382,20 @@ $("btn-generate").addEventListener("click", async () => {
       const batch = await gemini("questions", {
         roundType: S.roundType,
         level: S.level,
-        topics: S.analysis.topics,
+        topics: topics,
         batch: i,
         total: batches,
         want: want,
         hint: hints[Math.min(i, hints.length - 1)],
-        speech: S.speech
+        speech: S.speech,
+        // This session's questions first, then earlier sessions', within the
+        // backend's cap of 60.
+        avoid: S.questions.map(q => q.question).concat(seen).slice(0, 60)
       });
       const clean = (Array.isArray(batch) ? batch : []).filter(validQ).slice(0, want).map(placeCorrectAnswer);
       if (!clean.length) throw new Error("Batch " + (i + 1) + " came back empty.");
       S.questions = S.questions.concat(clean);
+      saveSeen(clean.map(q => q.question));
     } catch (e) {
       // Short of a usable set, stop and surface the real reason.
       if (S.questions.length < 5) {
