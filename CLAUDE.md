@@ -23,6 +23,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 ## Features to Build
 
 - [x] JD input (paste text or upload a .txt file), with AI-driven round-type detection and topic extraction; user can override the suggested round type
+- [x] Non tech job descriptions (sales, marketing, HR and so on) get a friendly note that helpers for those roles are coming soon, a button to paste another job description, and a way to continue if the classifier got it wrong. The analysis prompt returns `is_tech_role` and `role_title`; only an explicit false stops the flow, so an older backend still works
 - [x] Example job descriptions on the setup screen, three beginner roles (coding intern, junior web developer, IT support trainee), so anyone can try the app without finding one
 - [x] Difficulty follows the role's level: the analysis detects Entry, Mid or Senior, the user can override it, and each level climbs its own difficulty ladder; grading and the debrief judge against the level
 - [x] Batched adaptive question generation (20 or 30 total questions, or 5 as a quick demo), scaling up in difficulty across batches. The 5 question demo is a single batch, about 4 Gemini requests end to end instead of about 10, and always includes one spoken question

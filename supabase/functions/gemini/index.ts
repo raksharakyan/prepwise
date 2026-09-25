@@ -48,7 +48,7 @@ function analyzePrompt(i: Record<string, unknown>): Built | string {
     prompt:
       'You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\n\n' +
       'Return ONLY a raw JSON object, no markdown fences, no commentary, with exactly these keys:\n' +
-      '{"round_type": one of "Technical/DSA" or "System Design" or "Mixed", "level": one of "Entry" or "Mid" or "Senior", judged from the experience and responsibilities asked for, "reasoning": one or two sentences explaining the call, "topics": an array of 4 to 7 specific technical topics to focus on}\n\n' +
+      '{"is_tech_role": true if this role\'s interviews would include a technical round (software, web, data, cloud, IT, QA, DevOps, security and similar), false for non technical roles such as sales, marketing, HR, finance, design, operations, teaching or healthcare, "role_title": the job title in at most five words, "round_type": one of "Technical/DSA" or "System Design" or "Mixed", "level": one of "Entry" or "Mid" or "Senior", judged from the experience and responsibilities asked for, "reasoning": one or two sentences explaining the call, "topics": an array of 4 to 7 specific technical topics to focus on}\n\n' +
       'JOB DESCRIPTION:\n' + jd,
   };
 }

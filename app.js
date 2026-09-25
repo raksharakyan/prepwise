@@ -235,6 +235,7 @@ document.querySelectorAll("[data-example]").forEach(b => b.addEventListener("cli
   if (current && !isExample && !confirm("Replace the job description you entered with this example?")) return;
   box.value = EXAMPLE_JDS[b.dataset.example];
   box.scrollTop = 0;
+  hideNonTech();
   save();
   // Clear a stale "paste a fuller job description" message, but keep the
   // "no AI backend configured" one, which explains why Analyze is disabled.
@@ -254,6 +255,7 @@ $("jd").addEventListener("input", save);
 
 $("btn-analyze").addEventListener("click", async () => {
   setErr("err-setup", "");
+  hideNonTech();
   S.jd = $("jd").value.trim();
   if (!hasBackend()) return setErr("err-setup", "No AI backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js and reload.");
   if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
@@ -269,6 +271,9 @@ $("btn-analyze").addEventListener("click", async () => {
     S.roundType = S.analysis.round_type;
     if (!LEVELS.includes(S.analysis.level)) S.analysis.level = "Mid";
     S.level = S.analysis.level;
+    // Only an explicit false stops here, so a backend that predates the
+    // is_tech_role field still goes straight through.
+    if (S.analysis.is_tech_role === false) return showNonTech();
     renderAnalysis();
     show("s-analysis");
   } catch (e) {
@@ -279,6 +284,34 @@ $("btn-analyze").addEventListener("click", async () => {
     btn.textContent = "Analyze this role";
   }
 });
+
+/* ---------------- non tech roles ----------------
+   Prepwise only preps technical rounds, so a sales or HR job description
+   gets a friendly note instead of a set of made up technical questions.
+   The classifier can be wrong, so the user can still carry on. */
+function showNonTech() {
+  const role = S.analysis.role_title ? esc(S.analysis.role_title) : "";
+  $("nontech-title").innerHTML = role
+    ? "Ooh, <em>" + role + "</em> looks like a non tech role 🎀"
+    : "Ooh, this looks like a non tech role 🎀";
+  $("nontech").classList.remove("hidden");
+}
+
+function hideNonTech() { $("nontech").classList.add("hidden"); }
+
+$("btn-paste-again").onclick = () => {
+  hideNonTech();
+  $("jd").value = "";
+  save();
+  $("jd").focus();
+  window.scrollTo(0, 0);
+};
+
+$("btn-nontech-anyway").onclick = () => {
+  hideNonTech();
+  renderAnalysis();
+  show("s-analysis");
+};
 
 /* ---------------- analysis screen ---------------- */
 function renderAnalysis() {
