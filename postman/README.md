@@ -1,11 +1,12 @@
 # Postman tests
 
 `prepwise.postman_collection.json` tests the live Prepwise backend: the Supabase Edge
-Function that holds the Gemini key and proxies to Google.
+Function that holds the Gemini key, builds the prompts and calls Google. Each request
+sends a task name and its inputs, the same way the app does, never a prompt.
 
 ## Run it
 
-1. In Postman, **Import** and choose `prepwise.postman_collection.json`.
+1. In Postman, **Import** and choose `prepwise.postman_collection.json`. It appears as **Prepwise AI backend v2**. Delete any older "Prepwise AI backend" collection, which sends the retired prompt format and fails with "task must be one of".
 2. Open the collection, click **Run**, and run the requests **in order**.
 
 The URL and the publishable key are already set as collection variables. The Gemini key

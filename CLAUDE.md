@@ -45,7 +45,7 @@ The app is plain HTML, CSS and JavaScript with no build step, implementing the f
 
 - JD paste/upload screen, then an AI-analysis screen showing detected round type + topics with override buttons and question-count/speech toggles
 - Batched quiz generation: calls the LLM in batches of 5 questions at a time (to fit small max-token responses), building up to the full 20 or 30 question set with a live progress bar
-- Battle screen: HP bars for "YOU" vs "THE INTERVIEWER," MCQ options or a mic-based speech input box depending on question type, instant feedback panel, "Next question" flow
+- Battle screen: HP bars for "YOU" vs "THE INTERVIEWER," MCQ options or a mic-based speech input box depending on question type, instant feedback panel, "Next question" flow. Each hit is exactly 100 divided by the question count (a strong spoken answer deals double), and a knockout does not end the round: every question the user chose is asked, with a note under the progress once either side is at 0
 - Speech input uses the browser's native `SpeechRecognition` / `webkitSpeechRecognition` API, with a textarea fallback for typing when unsupported or when the transcript needs editing
 - Debrief screen: category breakdown bars plus an AI-written readiness summary, strengths, focus areas, and a tip
 
@@ -63,7 +63,7 @@ Three things that broke during the swap, documented in `docs/ai-prompts.md`:
   20 question session down to 5. Retry 429 and 5xx with exponential backoff.
 
 **The key is now server side.** As of 2026-09-24 the app calls a Supabase Edge Function named
-`gemini`, which holds `GEMINI_API_KEY` as a project secret and proxies to Google. No browser ever
+`gemini`, which holds `GEMINI_API_KEY` as a project secret and calls Google. No browser ever
 sees the key. Verified end to end: the function reaches Gemini, the page calls it cross origin,
 and the response parses. Setup steps are in `docs/supabase-setup.md`.
 
@@ -71,6 +71,19 @@ and the response parses. Setup steps are in `docs/supabase-setup.md`.
 Supabase publishable key, which ships in the page. Anyone who reads it can call the function and
 spend the Gemini quota. Closing this means checking for a signed in user inside the function, which
 arrives with session history since `sessions.user_id` needs a real user anyway.
+
+**The prompts are server side too.** As of 2026-09-25 the four prompts are built inside the
+`gemini` function, not in `app.js`, so they cannot be read from the live page's source. The page
+sends `{task, input}` where task is `analyze`, `questions`, `grade` or `debrief`, and the function
+only runs those four prompts with fixed token budgets. The old direct to Google mode with a key in
+`config.js` is gone. The difficulty ladders stay in `app.js` because the progress text shows them.
+The page footer reads "Raksha Rakyan 🎀" and the repo has a proprietary `LICENSE`.
+
+**The deployed `app.js` is minified.** GitHub keeps the readable `app.js`; Replit gets a copy
+minified with Terser (top level names included), built into `dist/` (gitignored) by
+`tools/minify.html` served from `tools/minify-server.py`. Every deploy ships `dist/app.js`, not
+the root `app.js`. The Replit editor does not reliably save pasted code to disk, so files are
+written from Replit's Shell with a base64 paste, checked with `md5sum`, then republished.
 
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 
@@ -134,6 +147,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 
 - **Do not read anything inside the `Ignore/` folder.** It is local scratch space, gitignored, and its contents are not part of the project. Do not open, search, summarize, or act on files there, even when a search would otherwise match them. If something in there is needed, the user will paste it directly.
 - Commit and push to the `dev` branch. `main` is reached only through a pull request.
+- **"FFD" means "add to the future feature doc."** When the user says FFD followed by an idea, add it as a new numbered entry at the bottom of `docs/future-features.md`. Use the same format as the other entries (status 💡 Idea, today's date, What, Why, Depends on), then commit and push to `dev`. Do not start building it.
 
 ## Style Notes
 

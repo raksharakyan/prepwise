@@ -51,6 +51,7 @@ button.ghost.on { border-color: var(--accent); background: rgba(124,92,255,.16);
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .hidden { display: none !important; }
 .muted { color: var(--muted); font-size: 13px; }
+.site-footer { margin-top: 48px; text-align: center; }
 .err { color: var(--danger); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
 
 /* battle */

@@ -1,7 +1,8 @@
 {
   "info": {
-    "name": "Prepwise AI backend",
-    "description": "Tests the Prepwise Supabase Edge Function, which proxies to Google Gemini.\n\nRun the folder in order. Each request feeds the next the way the app does: the job description analysis supplies the round type and topics for question generation, and the generated spoken question is what gets graded.\n\nA full run costs 4 Gemini requests. The free tier allows roughly 20 a day, so do not run it in a loop. The first request is free: it checks the backend rejects calls without a key.",
+    "_postman_id": "7abfc525-e7a3-444a-9d81-bf688b74c6f3",
+    "name": "Prepwise AI backend v2",
+    "description": "Tests the Prepwise Supabase Edge Function, which builds the prompts server side and calls Google Gemini. Requests send a task name and its inputs, never a prompt.\n\nRun the folder in order. Each request feeds the next the way the app does: the job description analysis supplies the round type and topics for question generation, and the generated spoken question is what gets graded.\n\nA full run costs 4 Gemini requests. The free tier allows roughly 20 a day, so do not run it in a loop. The first request is free: it checks the backend rejects calls without a key.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -23,10 +24,6 @@
       "value": ""
     },
     {
-      "key": "topics",
-      "value": ""
-    },
-    {
       "key": "speech_question",
       "value": ""
     },
@@ -43,8 +40,8 @@
       "value": ""
     },
     {
-      "key": "level_guidance",
-      "value": ""
+      "key": "topics_json",
+      "value": "[]"
     }
   ],
   "item": [
@@ -72,7 +69,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"Return ONLY raw JSON: {\\\"ok\\\":true}\",\n  \"maxOutputTokens\": 50\n}",
+          "raw": "{\n  \"task\": \"analyze\",\n  \"input\": {\n    \"jd\": \"This request is refused before it reaches the function, so this text never matters.\"\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -121,7 +118,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"You are an expert technical interview coach. Read this job description and decide which interview round the candidate should prepare for.\\n\\nReturn ONLY a raw JSON object, no markdown fences, no commentary, with exactly these keys:\\n{\\\"round_type\\\": one of \\\"Technical/DSA\\\" or \\\"System Design\\\" or \\\"Mixed\\\", \\\"level\\\": one of \\\"Entry\\\" or \\\"Mid\\\" or \\\"Senior\\\", judged from the experience and responsibilities asked for, \\\"reasoning\\\": one or two sentences explaining the call, \\\"topics\\\": an array of 4 to 7 specific technical topics to focus on}\\n\\nJOB DESCRIPTION:\\nSenior Unity engineer building mobile games in C#. Profile and optimize performance, memory usage and garbage collection across iOS and Android. Design scalable core game systems, own features end to end, and review code. 6+ years of game development, strong C# and Unity3D, mobile optimization experience.\",\n  \"maxOutputTokens\": 1024\n}",
+          "raw": "{\n  \"task\": \"analyze\",\n  \"input\": {\n    \"jd\": \"Senior Unity engineer building mobile games in C#. Profile and optimize performance, memory usage and garbage collection across iOS and Android. Design scalable core game systems, own features end to end, and review code. 6+ years of game development, strong C# and Unity3D, mobile optimization experience.\"\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -158,19 +155,13 @@
               "});",
               "// Feed the next request, the same way the app chains these calls.",
               "pm.collectionVariables.set(\"round_type\", esc(data.round_type));",
-              "pm.collectionVariables.set(\"topics\", esc(data.topics.join(\", \")));",
+              "pm.collectionVariables.set(\"topics_json\", JSON.stringify(data.topics));",
               "pm.test(\"level is Entry, Mid or Senior\", () => pm.expect([\"Entry\", \"Mid\", \"Senior\"]).to.include(data.level));",
-              "// Same ladders and guidance as app.js: batch 1 uses the first rung of the level's ladder.",
+              "// Same ladders as app.js: batch 1 uses the first rung of the level's ladder.",
               "const FIRST_RUNG = { Entry: \"the very basics, like a first lesson\", Mid: \"fundamentals and warm up\", Senior: \"fundamentals and warm up\" };",
-              "const GUIDANCE = {",
-              "  Entry:  \"The candidate is entry level: a student, recent graduate or career changer. Every question must be answerable by someone who has studied the basics. Use plain language, prefer everyday examples, and avoid advanced algorithms, formal complexity analysis and specialist jargon.\",",
-              "  Mid:    \"The candidate has a few years of experience. Expect solid working knowledge and practical judgment, not specialist depth.\",",
-              "  Senior: \"The candidate is senior. Expect depth, trade offs and edge cases.\"",
-              "};",
               "const lvl = [\"Entry\", \"Mid\", \"Senior\"].includes(data.level) ? data.level : \"Mid\";",
               "pm.collectionVariables.set(\"level\", lvl);",
-              "pm.collectionVariables.set(\"first_rung\", esc(FIRST_RUNG[lvl]));",
-              "pm.collectionVariables.set(\"level_guidance\", esc(GUIDANCE[lvl]));"
+              "pm.collectionVariables.set(\"first_rung\", esc(FIRST_RUNG[lvl]));"
             ]
           }
         }
@@ -204,7 +195,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"You are an expert technical interviewer writing questions for a {{round_type}} interview round.\\n\\nFocus topics: {{topics}}\\nThis is batch 1 of 4. Difficulty for this batch: {{first_rung}}.\\n{{level_guidance}}\\nWrite 5 questions. Do not repeat questions from earlier batches.\\n\\nExactly ONE question in this batch must have \\\"type\\\": \\\"speech\\\". The rest are \\\"mcq\\\".\\n\\nNever write options such as \\\"All of the above\\\", \\\"None of the above\\\" or \\\"Both A and B\\\", and never refer to an option by its letter or position anywhere, including in the explanation. The options will be shown in a different order.\\n\\nReturn ONLY a raw JSON array, no markdown fences, no commentary. Each element:\\n{\\\"question\\\": the question text, \\\"type\\\": \\\"mcq\\\" or \\\"speech\\\", \\\"options\\\": array of exactly 4 short answer strings (empty array when type is speech), \\\"correct_index\\\": 0-based index of the right option (use -1 when type is speech), \\\"explanation\\\": for mcq why the right answer is right, for speech the key points a strong spoken answer must cover, \\\"category\\\": a short topic label such as \\\"Arrays\\\" or \\\"Caching\\\"}\",\n  \"maxOutputTokens\": 4096\n}",
+          "raw": "{\n  \"task\": \"questions\",\n  \"input\": {\n    \"roundType\": \"{{round_type}}\",\n    \"level\": \"{{level}}\",\n    \"topics\": {{topics_json}},\n    \"batch\": 0,\n    \"total\": 4,\n    \"want\": 5,\n    \"hint\": \"{{first_rung}}\",\n    \"speech\": true\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -287,7 +278,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"You are grading a candidate's spoken answer in a technical interview. Be fair but rigorous, and judge it against what is expected at {{level}} level.\\n\\nQUESTION: {{speech_question}}\\n\\nKEY POINTS A STRONG ANSWER COVERS: {{speech_key_points}}\\n\\nCANDIDATE TRANSCRIPT: {{candidate_transcript}}\\n\\nThe transcript came from speech to text, so ignore grammar, filler words, and transcription noise. Judge the substance.\\n\\nReturn ONLY a raw JSON object, no markdown fences, no commentary:\\n{\\\"score\\\": integer 0 to 100, \\\"feedback\\\": two or three sentences on what landed and what was missing}\",\n  \"maxOutputTokens\": 1024\n}",
+          "raw": "{\n  \"task\": \"grade\",\n  \"input\": {\n    \"level\": \"{{level}}\",\n    \"question\": \"{{speech_question}}\",\n    \"keyPoints\": \"{{speech_key_points}}\",\n    \"transcript\": \"{{candidate_transcript}}\"\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -353,7 +344,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"prompt\": \"You are a technical interview coach writing a short debrief for a candidate who just finished a {{round_type}} practice session at {{level}} level.\\n\\nFocus topics for the role: {{topics}}\\nPer question results, formatted as category/type/outcome: Memory Management/mcq/correct; Memory Management/speech/42 of 100; Unity Architecture/mcq/wrong; Mobile Performance/mcq/correct; Unity Architecture/speech/81 of 100\\nThis was a 5 question session, which is only an early read, so do not overstate conclusions.\\nCategories scored under 70 percent: Unity Architecture (41%)\\n\\nRules. \\\"focus_areas\\\" may only contain categories from that under 70 percent list, and must be an empty array when the list is none. Never name a topic the session did not test. \\\"strengths\\\" are categories they did well in, or an empty array if there are none. \\\"tip\\\" is one concrete step for the weakest category.\\n\\nDo not use em dashes anywhere. Return ONLY a raw JSON object, no markdown fences, no commentary:\\n{\\\"overall_readiness\\\": two or three sentences on how ready they are for this round, \\\"strengths\\\": array of short strings, \\\"focus_areas\\\": array of 0 to 3 short strings, \\\"tip\\\": one concrete thing to do before the next session}\",\n  \"maxOutputTokens\": 1024\n}",
+          "raw": "{\n  \"task\": \"debrief\",\n  \"input\": {\n    \"roundType\": \"{{round_type}}\",\n    \"level\": \"{{level}}\",\n    \"topics\": {{topics_json}},\n    \"summary\": \"Memory Management/mcq/correct; Memory Management/speech/42 of 100; Unity Architecture/mcq/wrong; Mobile Performance/mcq/correct; Unity Architecture/speech/81 of 100\",\n    \"answered\": 5,\n    \"weak\": [\n      {\n        \"category\": \"Unity Architecture\",\n        \"pct\": 41\n      }\n    ]\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -395,7 +386,7 @@
               "  data.focus_areas.forEach(f => pm.expect(f.toLowerCase(), f).to.not.include(\"mobile performance\"));",
               "});",
               "pm.test(\"No em dashes in the copy\", () => {",
-              "  pm.expect(JSON.stringify(data)).to.not.include(\"\u2014\");",
+              "  pm.expect(JSON.stringify(data)).to.not.include(\"—\");",
               "});"
             ]
           }
