@@ -440,14 +440,27 @@ function validQ(q) {
 }
 
 /* ---------------- battle ---------------- */
-function damage() { return Math.ceil(100 / S.questions.length); }
+// Exact, not rounded up: ceil(100 / 30) is 4, so 25 correct answers used to
+// knock The Interviewer out with five questions still to go. HP is kept as a
+// fraction, clamped at 0, and rounded only for display.
+function damage() { return 100 / S.questions.length; }
+// 30 hits of 100 / 30 can leave 1e-14 behind in floating point, which would
+// miss the knockout, so anything that small counts as 0.
+const lowerHp = (hp, n) => (hp - n < 1e-6 ? 0 : hp - n);
+function hitBoss(n) { S.bossHp = lowerHp(S.bossHp, n); }
+function hitYou(n)  { S.youHp  = lowerHp(S.youHp, n); }
 
 function renderQuestion() {
   const q = S.questions[S.idx];
   S.answered = false;
   stopMic();
 
-  $("q-progress").textContent = "Question " + (S.idx + 1) + " of " + S.questions.length;
+  // A knockout no longer ends the round: the user chose how many questions to
+  // practise, and every answer feeds the debrief. Say so, or a 0 HP bar with
+  // questions still coming looks like a bug.
+  const down = S.bossHp <= 0 ? " · The Interviewer is down, finish the round"
+             : S.youHp <= 0 ? " · You are out of HP, finish the round" : "";
+  $("q-progress").textContent = "Question " + (S.idx + 1) + " of " + S.questions.length + down;
   $("q-cat").textContent = q.category || S.roundType;
   $("q-text").textContent = q.question;
   $("q-feedback").classList.add("hidden");
@@ -476,10 +489,10 @@ function renderQuestion() {
 }
 
 function paintHp() {
-  $("hp-you-fill").style.width = Math.max(0, S.youHp) + "%";
-  $("hp-boss-fill").style.width = Math.max(0, S.bossHp) + "%";
-  $("hp-you-num").textContent = Math.max(0, S.youHp) + " / 100";
-  $("hp-boss-num").textContent = Math.max(0, S.bossHp) + " / 100";
+  $("hp-you-fill").style.width = S.youHp + "%";
+  $("hp-boss-fill").style.width = S.bossHp + "%";
+  $("hp-you-num").textContent = Math.round(S.youHp) + " / 100";
+  $("hp-boss-num").textContent = Math.round(S.bossHp) + " / 100";
 }
 
 function answerMcq(picked) {
@@ -495,11 +508,11 @@ function answerMcq(picked) {
   });
 
   if (right) {
-    S.bossHp -= damage();
+    hitBoss(damage());
     $("boss-box").classList.add("shake");
     setTimeout(() => $("boss-box").classList.remove("shake"), 340);
   } else {
-    S.youHp -= damage();
+    hitYou(damage());
   }
   paintHp();
 
@@ -540,9 +553,9 @@ async function gradeSpeech(q, text) {
 function applySpeechScore(q, score) {
   const d = damage();
   let title;
-  if (score >= 80) { S.bossHp -= d * 2; title = "Critical hit"; }
-  else if (score >= 50) { S.bossHp -= d; title = "Solid hit"; }
-  else { S.youHp -= d; title = "You take damage"; }
+  if (score >= 80) { hitBoss(d * 2); title = "Critical hit"; }
+  else if (score >= 50) { hitBoss(d); title = "Solid hit"; }
+  else { hitYou(d); title = "You take damage"; }
   $("boss-box").classList.add("shake");
   setTimeout(() => $("boss-box").classList.remove("shake"), 340);
   paintHp();
@@ -649,7 +662,7 @@ function startRedo() {
 $("btn-submit-speech").addEventListener("click", submitSpeech);
 
 function sessionEnding() {
-  return S.idx === S.questions.length - 1 || S.youHp <= 0 || S.bossHp <= 0;
+  return S.idx === S.questions.length - 1;
 }
 
 function nextButtonHtml() {
@@ -750,7 +763,7 @@ async function runDebrief() {
   const lost = S.youHp <= 0;
   $("d-title").textContent = won ? "You beat The Interviewer" : lost ? "The Interviewer got the better of you" : "Session complete";
   $("d-line").textContent = "You answered " + S.results.length + " of " + S.questions.length +
-    " questions. Your HP " + Math.max(0, S.youHp) + ", The Interviewer " + Math.max(0, S.bossHp) + ".";
+    " questions. Your HP " + Math.round(S.youHp) + ", The Interviewer " + Math.round(S.bossHp) + ".";
 
   // category breakdown
   const cats = {};

@@ -45,7 +45,7 @@ The app is plain HTML, CSS and JavaScript with no build step, implementing the f
 
 - JD paste/upload screen, then an AI-analysis screen showing detected round type + topics with override buttons and question-count/speech toggles
 - Batched quiz generation: calls the LLM in batches of 5 questions at a time (to fit small max-token responses), building up to the full 20 or 30 question set with a live progress bar
-- Battle screen: HP bars for "YOU" vs "THE INTERVIEWER," MCQ options or a mic-based speech input box depending on question type, instant feedback panel, "Next question" flow
+- Battle screen: HP bars for "YOU" vs "THE INTERVIEWER," MCQ options or a mic-based speech input box depending on question type, instant feedback panel, "Next question" flow. Each hit is exactly 100 divided by the question count (a strong spoken answer deals double), and a knockout does not end the round: every question the user chose is asked, with a note under the progress once either side is at 0
 - Speech input uses the browser's native `SpeechRecognition` / `webkitSpeechRecognition` API, with a textarea fallback for typing when unsupported or when the transcript needs editing
 - Debrief screen: category breakdown bars plus an AI-written readiness summary, strengths, focus areas, and a tip
 
