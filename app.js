@@ -235,6 +235,7 @@ document.querySelectorAll("[data-example]").forEach(b => b.addEventListener("cli
   if (current && !isExample && !confirm("Replace the job description you entered with this example?")) return;
   box.value = EXAMPLE_JDS[b.dataset.example];
   box.scrollTop = 0;
+  hideNonTech();
   save();
   // Clear a stale "paste a fuller job description" message, but keep the
   // "no AI backend configured" one, which explains why Analyze is disabled.
@@ -254,9 +255,11 @@ $("jd").addEventListener("input", save);
 
 $("btn-analyze").addEventListener("click", async () => {
   setErr("err-setup", "");
+  hideNonTech();
   S.jd = $("jd").value.trim();
   if (!hasBackend()) return setErr("err-setup", "No AI backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js and reload.");
   if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
+  S.nonTech = false;
 
   const btn = $("btn-analyze");
   btn.disabled = true;
@@ -269,6 +272,9 @@ $("btn-analyze").addEventListener("click", async () => {
     S.roundType = S.analysis.round_type;
     if (!LEVELS.includes(S.analysis.level)) S.analysis.level = "Mid";
     S.level = S.analysis.level;
+    // Only an explicit false stops here, so a backend that predates the
+    // is_tech_role field still goes straight through.
+    if (S.analysis.is_tech_role === false) return showNonTech();
     renderAnalysis();
     show("s-analysis");
   } catch (e) {
@@ -280,9 +286,43 @@ $("btn-analyze").addEventListener("click", async () => {
   }
 });
 
+/* ---------------- non tech roles ----------------
+   Prepwise is built for technical rounds, so a sales or HR job description
+   first gets a friendly note. The user can still practise it: the round
+   type becomes the role itself, since DSA and System Design mean nothing
+   for a mutual fund advisor, and the set defaults to multiple choice. */
+function showNonTech() {
+  const role = S.analysis.role_title ? esc(S.analysis.role_title) : "";
+  $("nontech-title").innerHTML = role
+    ? "Ooh, <em>" + role + "</em> looks like a non tech role 🎀"
+    : "Ooh, this looks like a non tech role 🎀";
+  $("nontech").classList.remove("hidden");
+}
+
+function hideNonTech() { $("nontech").classList.add("hidden"); }
+
+$("btn-paste-again").onclick = () => {
+  hideNonTech();
+  $("jd").value = "";
+  save();
+  $("jd").focus();
+  window.scrollTo(0, 0);
+};
+
+$("btn-nontech-anyway").onclick = () => {
+  hideNonTech();
+  S.nonTech = true;
+  // The backend caps the round type at 50 characters.
+  S.roundType = (S.analysis.role_title || "Role knowledge").slice(0, 50);
+  S.speech = false;
+  renderAnalysis();
+  show("s-analysis");
+};
+
 /* ---------------- analysis screen ---------------- */
 function renderAnalysis() {
-  $("a-round").textContent = S.analysis.round_type + " round";
+  $("a-round").textContent = (S.nonTech ? S.roundType : S.analysis.round_type) + " round";
+  $("a-override-wrap").classList.toggle("hidden", !!S.nonTech);
   $("a-reason").textContent = S.analysis.reasoning || "";
 
   $("a-topics").innerHTML = S.analysis.topics
@@ -928,7 +968,12 @@ $("btn-restart").onclick = () => {
    closed one starts fresh. Storage can be unavailable (private windows,
    blocked site data), so every access is guarded and the app runs without it. */
 const SAVE_KEY = "prepwise.session";
-const SAVED_FIELDS = ["jd", "analysis", "roundType", "level", "count", "speech", "questions", "idx",
+// The build stamp from app.js?v=..., so a round saved by an older deploy is
+// dropped instead of restored into newer code.
+const BUILD = (() => {
+  try { return new URL(document.currentScript.src).searchParams.get("v") || ""; } catch (e) { return ""; }
+})();
+const SAVED_FIELDS = ["jd", "analysis", "nonTech", "roundType", "level", "count", "speech", "questions", "idx",
   "youHp", "bossHp", "results", "answered", "picked", "redosLeft", "revealed", "scored", "lastPanel", "debrief"];
 let restored = false;
 
@@ -938,6 +983,7 @@ function save() {
     const state = {};
     SAVED_FIELDS.forEach(k => { state[k] = S[k]; });
     sessionStorage.setItem(SAVE_KEY, JSON.stringify({
+      build: BUILD,
       screen: screen,
       jdDraft: $("jd").value,
       transcript: $("transcript").value,
@@ -949,7 +995,7 @@ function save() {
 function restore() {
   let saved = null;
   try { saved = JSON.parse(sessionStorage.getItem(SAVE_KEY)); } catch (e) {}
-  if (!saved || !saved.S) return;
+  if (!saved || !saved.S || saved.build !== BUILD) return;
   $("jd").value = saved.jdDraft || "";
   SAVED_FIELDS.forEach(k => { if (k in saved.S) S[k] = saved.S[k]; });
   $("transcript").value = saved.transcript || "";

@@ -23,6 +23,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 ## Features to Build
 
 - [x] JD input (paste text or upload a .txt file), with AI-driven round-type detection and topic extraction; user can override the suggested round type
+- [x] Non tech job descriptions (sales, marketing, HR, finance and so on) get a friendly note that a proper helper for those roles is coming soon, with a choice to practise the role anyway or paste another job description. Practising it hides the DSA and System Design round types, uses the role title as the round, and defaults to multiple choice. The analysis prompt returns `is_tech_role` and `role_title`; only an explicit false triggers the note, so an older backend still works
 - [x] Example job descriptions on the setup screen, three beginner roles (coding intern, junior web developer, IT support trainee), so anyone can try the app without finding one
 - [x] Difficulty follows the role's level: the analysis detects Entry, Mid or Senior, the user can override it, and each level climbs its own difficulty ladder; grading and the debrief judge against the level
 - [x] Batched adaptive question generation (20 or 30 total questions, or 5 as a quick demo), scaling up in difficulty across batches. The 5 question demo is a single batch, about 4 Gemini requests end to end instead of about 10, and always includes one spoken question
@@ -83,7 +84,7 @@ The page footer reads "Raksha Rakyan 🎀" and the repo has a proprietary `LICEN
 **The deployed `app.js` is minified.** GitHub keeps the readable `app.js`; Replit gets a copy
 minified with Terser (top level names included), built into `dist/` (gitignored) by
 `tools/minify.html` served from `tools/minify-server.py`. Every deploy ships `dist/app.js`, not
-the root `app.js`. The Replit editor does not reliably save pasted code to disk, so files are
+the root `app.js`. The build also stamps `index.html`, replacing `?v=dev` on `styles.css` and `app.js` with a hash of the build, so each deploy forces browsers past their cache, and a round saved in sessionStorage by an older deploy is dropped rather than restored. The Replit editor does not reliably save pasted code to disk, so files are
 written from Replit's Shell with a base64 paste, checked with `md5sum`, then republished.
 
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:

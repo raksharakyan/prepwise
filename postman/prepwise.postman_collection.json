@@ -149,6 +149,7 @@
               "  pm.expect([\"Technical/DSA\", \"System Design\", \"Mixed\"]).to.include(data.round_type);",
               "});",
               "pm.test(\"reasoning is present\", () => pm.expect(data.reasoning).to.be.a(\"string\").and.not.empty);",
+              "pm.test(\"A tech job description is flagged as a tech role\", () => pm.expect(data.is_tech_role).to.equal(true));",
               "pm.test(\"4 to 7 focus topics\", () => {",
               "  pm.expect(data.topics).to.be.an(\"array\");",
               "  pm.expect(data.topics.length).to.be.within(4, 7);",
