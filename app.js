@@ -372,6 +372,17 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
 
+// Escapes model text for display and renders the markdown it sometimes adds
+// despite being asked not to. `def` becomes code and **word** loses its
+// stars. A code span glued to a word, as in the`def`keyword, gets its
+// spaces back: shown raw, that read as "thedef keyword".
+function fmt(s) {
+  return esc(s)
+    .replace(/(\w)?`([^`\n]+)`(\w)?/g, (m, a, code, b) =>
+      (a ? a + " " : "") + "<code>" + code + "</code>" + (b ? " " + b : ""))
+    .replace(/\*\*([^*\n]+)\*\*/g, "$1");
+}
+
 /* ---------------- generation ---------------- */
 // Questions this browser has already been asked for a job description, so a
 // new session, or a longer one after the demo, does not open with the same
@@ -511,14 +522,22 @@ function dealPosition(n) {
 // question wrong, so any question containing one keeps the model's order.
 const POSITIONAL_OPTION = /\b(all|none|both|neither)\s+of\s+(the\s+)?(above|these|them)\b|\bboth\s+[a-d]\b|\b[a-d]\s+(and|&)\s+[a-d]\b/i;
 
+// option_notes says why each option is right or wrong, so a wrong pick can be
+// explained. It moves with its option, and is dropped if it does not line up.
 function placeCorrectAnswer(q) {
   if (q.type !== "mcq") return q;
-  if (q.options.some(o => POSITIONAL_OPTION.test(String(o)))) return q;
-  const right = q.options[q.correct_index];
-  const options = shuffleInPlace(q.options.filter((_, i) => i !== q.correct_index));
+  const notes = Array.isArray(q.option_notes) && q.option_notes.length === q.options.length ? q.option_notes : null;
+  if (q.options.some(o => POSITIONAL_OPTION.test(String(o)))) return Object.assign({}, q, { option_notes: notes });
+  const pairs = q.options.map((o, i) => ({ o: o, n: notes ? notes[i] : "" }));
+  const right = pairs[q.correct_index];
+  const rest = shuffleInPlace(pairs.filter((_, i) => i !== q.correct_index));
   const pos = dealPosition(q.options.length);
-  options.splice(pos, 0, right);
-  return Object.assign({}, q, { options: options, correct_index: pos });
+  rest.splice(pos, 0, right);
+  return Object.assign({}, q, {
+    options: rest.map(p => p.o),
+    option_notes: notes ? rest.map(p => p.n) : null,
+    correct_index: pos
+  });
 }
 
 function validQ(q) {
@@ -553,7 +572,7 @@ function renderQuestion(restoring) {
              : S.youHp <= 0 ? " · You are out of HP, finish the round" : "";
   $("q-progress").textContent = "Question " + (S.idx + 1) + " of " + S.questions.length + down;
   $("q-cat").textContent = q.category || S.roundType;
-  $("q-text").textContent = q.question;
+  $("q-text").innerHTML = fmt(q.question);
   $("q-feedback").classList.add("hidden");
   $("q-feedback").innerHTML = "";
   setErr("err-battle", "");
@@ -577,7 +596,7 @@ function renderQuestion(restoring) {
   } else {
     $("q-speech").classList.add("hidden");
     $("q-mcq").innerHTML = q.options
-      .map((o, i) => '<button class="opt" data-i="' + i + '">' + esc(o) + '</button>').join("");
+      .map((o, i) => '<button class="opt" data-i="' + i + '">' + fmt(o) + '</button>').join("");
     $("q-mcq").querySelectorAll(".opt").forEach(b => b.onclick = () => answerMcq(+b.dataset.i));
     if (restoring && S.answered) paintMcqAnswer(q, S.picked);
   }
@@ -622,10 +641,20 @@ function paintMcqAnswer(q, picked) {
     if (i === q.correct_index) b.classList.add("right");
     else if (i === picked) b.classList.add("wrong");
   });
-  showFeedback(
-    right ? "Direct hit" : "You take damage",
-    right ? "Correct. " + (q.explanation || "") : "Not quite. " + (q.explanation || "")
-  );
+  const notes = q.option_notes || [];
+  let body;
+  if (right) {
+    body = "<p>Correct. " + fmt(q.explanation || "") + "</p>";
+  } else {
+    // Say why the pick was wrong, not only why the right answer is right.
+    // The options are already marked red and green above, so name them by
+    // colour instead of repeating long option text.
+    body = (notes[picked]
+        ? "<p><strong>Why yours is wrong:</strong> " + fmt(notes[picked]) + "</p>"
+        : "") +
+      "<p><strong>The right answer:</strong> " + fmt(q.explanation || "") + "</p>";
+  }
+  showFeedback(right ? "Direct hit" : "You take damage", body);
 }
 
 /* ---------------- spoken answers ----------------
@@ -725,7 +754,7 @@ function renderSpeechPanel() {
   let html = "";
 
   if (p) {
-    html += '<div class="fb"><h3>' + esc(p.title) + '</h3><p class="muted" style="margin:0">' + esc(p.body) + '</p></div>';
+    html += '<div class="fb"><h3>' + esc(p.title) + '</h3><p class="muted" style="margin:0">' + fmt(p.body) + '</p></div>';
     html += '<p class="note">Your scored answer: ' + S.scored + ' out of 100. Redos are practice and do not change your HP or your debrief.</p>';
   }
 
@@ -735,7 +764,7 @@ function renderSpeechPanel() {
   html += nextButtonHtml() + '</div>';
 
   if (S.revealed) {
-    html += '<div class="reveal"><h3>What a strong answer covers</h3><p>' + esc(q.explanation || "") + '</p></div>';
+    html += '<div class="reveal"><h3>What a strong answer covers</h3><p>' + fmt(q.explanation || "") + '</p></div>';
   }
 
   $("q-feedback").innerHTML = html;
@@ -805,9 +834,10 @@ function wireNext() {
   };
 }
 
+// body is HTML, already escaped by fmt.
 function showFeedback(title, body) {
   $("q-feedback").innerHTML =
-    '<div class="fb"><h3>' + esc(title) + '</h3><p class="muted" style="margin:0">' + esc(body) + '</p></div>' +
+    '<div class="fb"><h3>' + esc(title) + '</h3><div class="muted fb-body">' + body + '</div></div>' +
     '<div class="row" style="margin-top:16px">' + nextButtonHtml() + '</div>';
   wireNext();
   $("q-feedback").classList.remove("hidden");

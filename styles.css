@@ -67,6 +67,13 @@ button.ghost.on { border-color: var(--accent); background: rgba(124,92,255,.16);
 .nontech h3 { margin: 0 0 8px; font-size: 16px; }
 .nontech p { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
 .nontech .row { margin-top: 14px; }
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .92em;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px;
+}
+.fb-body p { margin: 0 0 8px; }
+.fb-body p:last-child { margin-bottom: 0; }
+.fb-body strong { color: var(--text); font-weight: 600; }
 .err { color: var(--danger); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
 
 /* battle */

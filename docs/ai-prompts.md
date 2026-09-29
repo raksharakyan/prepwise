@@ -57,6 +57,13 @@ make it the only precise or the only fully qualified one. No joke, absurd or off
 topic options, and no absolute words such as "always" or "never" that give a wrong
 option away.
 
+Exactly one option may be correct. Every wrong option must be definitely wrong for
+the question as asked, never another valid way to do the same thing. For example,
+git switch and git checkout can both change branches, so never offer both.
+
+Write code, commands and keywords such as def or git commit as plain text inside the
+sentence, with spaces around them. No markdown anywhere: no backticks, no asterisks.
+
 Never write options such as "All of the above", "None of the above" or "Both A and B",
 and never refer to an option by its letter or position anywhere, including in the
 explanation. The options will be shown in a different order.
@@ -66,8 +73,17 @@ Return ONLY a raw JSON array, no markdown fences, no commentary. Each element:
 exactly 4 short answer strings (empty array when type is speech), "correct_index":
 0-based index of the right option (use -1 when type is speech), "explanation": for
 mcq why the right answer is right, for speech the key points a strong spoken answer
-must cover, "category": a short topic label such as "Arrays" or "Caching"}
+must cover, "option_notes": for mcq an array of exactly 4 short strings in the same
+order as options, each one sentence of at most 20 words saying why that option is
+right or wrong without referring to other options by position (empty array when type
+is speech), "category": a short topic label such as "Arrays" or "Caching"}
 ```
+
+`option_notes` lets a wrong answer be explained: the feedback shows why the pick was
+wrong, then why the right answer is right. The client shuffles each note with its
+option, and drops the notes if they do not line up with the options. The page also
+renders any markdown the model adds anyway (backticks become code, glued spans such as
+the`def`keyword get their spaces back), since shown raw that read as "thedef keyword".
 
 The already asked block is left out when there is nothing to avoid. It lists this
 session's earlier questions, then the ones this browser was asked in recent sessions on

@@ -29,6 +29,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [x] Batched adaptive question generation (20 or 30 total questions, or 5 as a quick demo), scaling up in difficulty across batches. The 5 question demo is a single batch, about 4 Gemini requests end to end instead of about 10, and always includes one spoken question
 - [x] Two question types: multiple-choice (instant client-side scoring) and speech-answered (via browser voice input, with a manual typed fallback for unsupported browsers)
 - [x] AI grading of spoken answers (0 to 100 score plus written feedback)
+- [x] A wrong multiple choice answer is explained: the question prompt returns `option_notes`, one short note per option, so the feedback says why the pick was wrong before why the right answer is right. The prompt also requires exactly one correct option, and the page renders any stray markdown from the model (code in backticks, bold) instead of showing it raw
 - [x] Redo and Show Correct Answer on spoken questions: the first attempt is the scored one and alone moves HP and the debrief; up to two redos are graded as practice only; the reference answer can be revealed any time and is revealed automatically once the last redo is graded
 - [x] Boss-battle style UI: HP bars, category tags per question, live progress
 - [x] A reload does not lose the round: the session (screen, question, HP, answers, a half typed answer, and the written debrief) is saved to the tab's sessionStorage and restored on load. A reload mid generation goes back to the analysis screen with the choices kept
@@ -90,7 +91,7 @@ written from Replit's Shell with a base64 paste, checked with `md5sum`, then rep
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 
 - **JD analysis prompt**: returns strict JSON `{round_type, level, reasoning, topics}` given the JD text, where level is Entry, Mid or Senior and sets how hard the questions get
-- **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
+- **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, option_notes, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
 - **Speech grading prompt**: given the question, the ideal answer/key points (from `explanation`), and the candidate's transcript, returns strict JSON `{score, feedback}`
 - **Debrief prompt**: given a compact summary string of per-question category/type/correct-or-score, plus the weak categories (under 70 percent) computed by the app, returns strict JSON `{overall_readiness, strengths, focus_areas, tip}`. Focus areas may only name weak categories; with none, the section is hidden and the tip suggests the next level up
 
