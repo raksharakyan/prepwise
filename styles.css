@@ -26,8 +26,10 @@ body {
 .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
 h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.4px; }
 h2 { font-size: 20px; margin: 0 0 12px; }
-/* Syne for headings and the brand, Manrope for everything else */
-h1, h2, h3, .brand-name, .hp-name, .hp-num, .tag { font-family: var(--font-head); }
+/* Syne only for text set in capitals: its g, y and p have stub tails that
+   look cut off in lowercase words such as "damage". Manrope for the rest. */
+.brand-name, .hp-name, .tag { font-family: var(--font-head); }
+h1, h2, h3 { font-weight: 700; }
 .tag {
   display: inline-block; font-size: 11px; letter-spacing: 1.4px;
   text-transform: uppercase; color: var(--accent-2); margin-bottom: 18px;
