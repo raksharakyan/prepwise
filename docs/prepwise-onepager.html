@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prepwise One Pager</title>
+<!-- Source for docs/Prepwise_OnePager.pdf. Print to PDF with headless Chrome:
+     Google Chrome --headless=new --no-pdf-header-footer --print-to-pdf=docs/Prepwise_OnePager.pdf docs/prepwise-onepager.html -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --ink: #151a2e; --muted: #5a6285; --line: #e3e6f2; --soft: #f5f6fc;
+    --accent: #7c5cff; --accent-2: #00b89f; --dark: #0b0d17;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    width: 210mm; height: 297mm; overflow: hidden;
+    font: 8.7pt/1.42 Manrope, sans-serif; color: var(--ink); background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  header {
+    background: var(--dark); color: #e8eaf6; padding: 7.5mm 12mm 6mm;
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm;
+  }
+  .brand {
+    font: 700 28pt/1 Syne, sans-serif; letter-spacing: 1px; margin: 0;
+    background: linear-gradient(90deg, #7c5cff, #00d4b8);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .tagline { font-size: 11pt; font-weight: 700; margin: 2.2mm 0 1mm; }
+  .by { font-size: 8.4pt; color: #8f97bd; }
+  .meta { text-align: right; font-size: 8.2pt; color: #8f97bd; line-height: 1.6; }
+  .meta b { color: #e8eaf6; font-weight: 600; }
+  .meta .link { color: #00d4b8; font-weight: 700; text-decoration: none; }
+  /* Manrope's contextual alternates draw the double hyphen in the URL as one
+     long dash, which would send anyone typing it to the wrong address. */
+  a { font-feature-settings: "calt" 0, "liga" 0; font-variant-ligatures: none; }
+  footer a { color: inherit; text-decoration: none; }
+
+  main { padding: 4.5mm 12mm 0; }
+  h2 {
+    font-size: 8.2pt; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 1.6mm;
+  }
+  p { margin: 0; }
+
+  .ps { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-bottom: 3.8mm; }
+
+  .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2.2mm; margin-bottom: 3.8mm; }
+  .step { background: var(--soft); border: 1px solid var(--line); border-radius: 2.5mm; padding: 2mm 2.4mm; }
+  .step .n {
+    display: inline-block; width: 5mm; height: 5mm; border-radius: 50%; background: var(--accent);
+    color: #fff; font-size: 7.4pt; font-weight: 800; text-align: center; line-height: 5mm; margin-bottom: .8mm;
+  }
+  .step b { display: block; font-size: 8.2pt; margin-bottom: .6mm; }
+  .step span { font-size: 7.2pt; color: var(--muted); line-height: 1.4; display: block; }
+
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 4mm; margin-bottom: 3.8mm; }
+  figure { margin: 0; }
+  figure img {
+    width: 100%; display: block; border-radius: 2mm; border: 1px solid #1f2440;
+  }
+  figcaption { font-size: 7.6pt; color: var(--muted); margin-top: 1.2mm; }
+  figcaption b { color: var(--ink); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1.25fr 0.95fr; gap: 5mm; }
+  ul { margin: 0; padding-left: 3.6mm; }
+  li { margin-bottom: .8mm; font-size: 7.8pt; line-height: 1.38; }
+  li b { font-weight: 700; }
+
+  footer {
+    position: absolute; left: 12mm; right: 12mm; bottom: 6mm;
+    border-top: 1px solid var(--line); padding-top: 2mm;
+    display: flex; justify-content: space-between; font-size: 7.4pt; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 class="brand">PREPWISE</h1>
+    <div class="tagline">Your one-stop AI prep for technical interview rounds</div>
+    <div class="by">by Raksha Rakyan</div>
+  </div>
+  <div class="meta">
+    <b>IIT Patna · Generative AI for Professionals</b><br>
+    Capstone Sprint, Week 4: Testing and Showcase<br>
+    <a class="link" href="https://prepwise--raksharakyan.replit.app">prepwise--raksharakyan.replit.app</a>
+  </div>
+</header>
+
+<main>
+  <div class="ps">
+    <section>
+      <h2>Problem</h2>
+      <p>Candidates rarely know what a specific role will test. Generic prep (LeetCode lists, static question banks) does not adapt to the job description, and almost none of it lets you practise explaining an answer out loud, which is how real technical rounds are judged.</p>
+    </section>
+    <section>
+      <h2>Solution</h2>
+      <p>Prepwise reads a job description, works out the round type and the level of the role, builds an adaptive question set with multiple choice and spoken questions, grades every answer with AI, and ends with a debrief grounded in your actual scores.</p>
+    </section>
+  </div>
+
+  <h2>How it works</h2>
+  <div class="steps">
+    <div class="step"><span class="n">1</span><b>Paste a JD</b><span>Or tap one of three beginner examples.</span></div>
+    <div class="step"><span class="n">2</span><b>AI analysis</b><span>Round type, level (Entry, Mid, Senior) and focus topics.</span></div>
+    <div class="step"><span class="n">3</span><b>Adaptive questions</b><span>5, 20 or 30 questions that get harder for the level.</span></div>
+    <div class="step"><span class="n">4</span><b>Answer and learn</b><span>Speak or tap. AI grades and explains every answer.</span></div>
+    <div class="step"><span class="n">5</span><b>Debrief</b><span>Scores by category, focus areas and a next step.</span></div>
+  </div>
+
+  <div class="shots">
+    <figure>
+      <img src="../assets/onepager/setup.jpg" alt="Setup screen">
+      <figcaption><b>Setup.</b> Paste a job description or tap an example role.</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/onepager/analysis.jpg" alt="Analysis screen">
+      <figcaption><b>Analysis.</b> Detected round, level and topics, all adjustable.</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/onepager/battle.jpg" alt="Question screen">
+      <figcaption><b>Question.</b> A wrong pick is explained, then the right answer.</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/onepager/debrief.jpg" alt="Debrief screen">
+      <figcaption><b>Debrief.</b> Scores by category, strengths and focus areas.</figcaption>
+    </figure>
+  </div>
+
+  <div class="cols">
+    <section>
+      <h2>Tech stack</h2>
+      <ul>
+        <li><b>Google Gemini API</b> for analysis, questions, grading and the debrief</li>
+        <li><b>Supabase Edge Function</b> holds the API key and all four prompts server side</li>
+        <li><b>Web Speech API</b> for voice answers, with a typed fallback</li>
+        <li><b>HTML, CSS, JavaScript</b> on Replit, no framework</li>
+        <li><b>Postman</b> collection testing the live backend</li>
+      </ul>
+    </section>
+    <section>
+      <h2>GenAI engineering highlights</h2>
+      <ul>
+        <li><b>Level aware prompts:</b> each level climbs its own difficulty ladder, so an intern JD gets beginner questions</li>
+        <li><b>Grounded debrief:</b> weak areas are computed from scores, so the model cannot invent weaknesses</li>
+        <li><b>Fair questions:</b> exactly one correct option, shuffled answer slots, and a note on why each option is wrong</li>
+        <li><b>Resilience:</b> retries with backoff for Gemini's frequent 503s, and rounds survive a page reload</li>
+      </ul>
+    </section>
+    <section>
+      <h2>What's next</h2>
+      <ul>
+        <li>Sign in and session history in Supabase</li>
+        <li>Follow up sessions on weak areas only</li>
+        <li>PDF job description and CV upload</li>
+        <li>Coding editor for coding rounds</li>
+        <li>Behavioral round prep</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span>Prepwise · Raksha Rakyan · IIT Patna Generative AI for Professionals Capstone</span>
+  <span>Try it: <a href="https://prepwise--raksharakyan.replit.app">prepwise--raksharakyan.replit.app</a></span>
+</footer>
+
+</body>
+</html>
