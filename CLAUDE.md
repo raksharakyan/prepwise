@@ -45,13 +45,14 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 
 ## Existing Prototype
 
-The app is plain HTML, CSS and JavaScript with no build step, implementing the full flow above and verified end to end against the live Gemini API. It is three files plus a config: `index.html` holds the markup, `styles.css` the styles, and `app.js` all the logic. `config.js` (gitignored) holds the Supabase URL and publishable key, and must load before `app.js`. All four are deployed together as a Replit static site:
+The app is plain HTML, CSS and JavaScript with no build step, implementing the full flow above and verified end to end against the live Gemini API. It is three files plus a config: `index.html` holds the markup, `styles.css` the styles, and `app.js` all the logic. `config.js` (gitignored) holds the Supabase URL, publishable key, Turnstile site key and the `PHONE_AUTH` switch, and must load before `app.js`. All four are deployed together as a Replit static site. The page also loads supabase-js and Turnstile from their CDNs:
 
 - JD paste/upload screen, then an AI-analysis screen showing detected round type + topics with override buttons and question-count/speech toggles
 - Batched quiz generation: calls the LLM in batches of 5 questions at a time (to fit small max-token responses), building up to the full 20 or 30 question set with a live progress bar
 - Battle screen: HP bars for "YOU" vs "THE INTERVIEWER," MCQ options or a mic-based speech input box depending on question type, instant feedback panel, "Next question" flow. Each hit is exactly 100 divided by the question count (a strong spoken answer deals double), and a knockout does not end the round: every question the user chose is asked, with a note under the progress once either side is at 0
 - Speech input uses the browser's native `SpeechRecognition` / `webkitSpeechRecognition` API, with a textarea fallback for typing when unsupported or when the transcript needs editing
-- Debrief screen: category breakdown bars plus an AI-written readiness summary, strengths, focus areas, and a tip
+- Debrief screen: category breakdown bars plus an AI-written readiness summary, strengths, focus areas, and a tip. A guest's debrief ends with a prompt to create an account
+- Sign in screen (Sign in and Create account tabs, a 6 digit code step, and a username step for new accounts) and an account screen, opened from the username button in the header. Signing out clears the round saved in sessionStorage
 
 **Provider swap is done.** The prototype originally called `https://api.anthropic.com/v1/messages`
 with no API key, which only worked inside Claude.ai's artifact sandbox. It now calls Google AI
@@ -110,7 +111,8 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
 | Frontend | Replit (Lovable was intended, access never arrived) | Hosting the working HTML/JS prototype as a public web app |
 | Backend / Data | Supabase | Accounts (passwordless email codes, guest trial via anonymous sign in), storing session history, quiz results, and progress over time |
-| Testing | Postman | Collection in `postman/` that tests the live backend: a free security check that unauthenticated calls are refused, then the four AI calls chained the way the app runs them, each with structural assertions |
+| Security | Cloudflare Turnstile, Gmail SMTP | Turnstile is the bot check on sending codes and starting a guest trial; Gmail (app password) sends the sign in codes, since Supabase's built in email only reaches team addresses. Both sit outside the capstone's approved tool list, as supporting services only |
+| Testing | Postman | Collection in `postman/` that tests the live backend: free security checks that calls without a key, or with only the publishable key, are refused; the four AI calls chained the way the app runs them, each with structural assertions; username check results; and a guest being refused a graded spoken answer. Access tokens are pasted in from the app, see `postman/README.md` |
 
 ## 4-Week Sprint Timeline
 
