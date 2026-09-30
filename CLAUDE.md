@@ -35,6 +35,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [x] A reload does not lose the round: the session (screen, question, HP, answers, a half typed answer, and the written debrief) is saved to the tab's sessionStorage and restored on load. A reload mid generation goes back to the analysis screen with the choices kept
 - [x] AI-generated debrief screen with category breakdown and strengths/focus areas/tip
 - [x] Swap AI provider from Claude API (only free inside Claude.ai artifacts) to Google AI Studio's Gemini API using a real free-tier API key, so the app works once deployed outside Claude.ai
+- [ ] Passwordless accounts (built 2026-09-30, waiting on the Supabase dashboard setup in `docs/supabase-setup.md` section 7, then deploy): username plus email, a 6 digit code to sign in, no other personal data. Username is unique ignoring case, 3 to 20 letters, numbers or underscores, with a blocklist (system words also caught as lookalikes like `adm1n`, profanity as whole tokens) and a live availability check rate limited per hashed IP. Sign in and Create account send the same request and show the same message, so nobody can learn which emails are registered. Guests get one 5 question multiple choice round, enforced in the `gemini` function through Supabase anonymous sign in. Turnstile guards sending codes and starting a guest trial. Account page: change username (once a week, old name held 30 days), change email (codes to both addresses), sign out, sign out everywhere, delete account (needs a fresh code). Phone sign in is built behind `PHONE_AUTH` in `config.js`, off until an SMS provider is connected
 - [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
 - [x] Supabase Edge Function holding the Gemini key server side, so the app can be deployed without exposing it
 - [ ] Supabase integration: persist session history, quiz results, and progress over time so users can track readiness across multiple sessions (schema and row level security are deployed, the app does not write to them yet)
@@ -70,10 +71,14 @@ Three things that broke during the swap, documented in `docs/ai-prompts.md`:
 sees the key. Verified end to end: the function reaches Gemini, the page calls it cross origin,
 and the response parses. Setup steps are in `docs/supabase-setup.md`.
 
-**Remaining limitation:** the function has no authentication of its own beyond requiring a valid
-Supabase publishable key, which ships in the page. Anyone who reads it can call the function and
-spend the Gemini quota. Closing this means checking for a signed in user inside the function, which
-arrives with session history since `sessions.user_id` needs a real user anyway.
+**Remaining limitation, closed by accounts once deployed:** the live function still accepts the
+publishable key alone, so anyone who reads it can spend the Gemini quota. The accounts change
+makes `gemini` require a signed in user (a real account or a guest on the free trial), caps
+guests at one 5 question round and signed in users at 150 calls a day, and restricts CORS to the
+Replit site and localhost. A second function, `account`, checks usernames and deletes accounts.
+Both keep `verify_jwt = false` and check the caller with Supabase Auth in code, since the platform
+check refuses `sb_publishable_` keys. The page loads supabase-js 2.117.2 from jsDelivr with an SRI
+hash and sets a Content-Security-Policy, so it has no inline scripts or handlers.
 
 **The prompts are server side too.** As of 2026-09-25 the four prompts are built inside the
 `gemini` function, not in `app.js`, so they cannot be read from the live page's source. The page
@@ -104,7 +109,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | LLM / AI | Google AI Studio, Gemini API | JD analysis, adaptive question generation, grading of spoken answers |
 | Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
 | Frontend | Replit (Lovable was intended, access never arrived) | Hosting the working HTML/JS prototype as a public web app |
-| Backend / Data | Supabase | Storing session history, quiz results, and progress over time |
+| Backend / Data | Supabase | Accounts (passwordless email codes, guest trial via anonymous sign in), storing session history, quiz results, and progress over time |
 | Testing | Postman | Collection in `postman/` that tests the live backend: a free security check that unauthenticated calls are refused, then the four AI calls chained the way the app runs them, each with structural assertions |
 
 ## 4-Week Sprint Timeline

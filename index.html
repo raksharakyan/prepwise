@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The sign in session lives in localStorage, so a script injected into this
+     page could steal it. This limits scripts to this site, the one pinned
+     supabase-js build, and Turnstile, with no inline scripts or handlers. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/ https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://hvseavmnyhwybklmqvvc.supabase.co; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Prepwise</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,8 +19,11 @@
 <div class="wrap">
 
   <header class="brand">
-    <div class="brand-name">Prepwise</div>
-    <div class="brand-by">by Raksha Rakyan 🎀</div>
+    <div>
+      <div class="brand-name">Prepwise</div>
+      <div class="brand-by">by Raksha Rakyan 🎀</div>
+    </div>
+    <div class="acct" id="acct"></div>
   </header>
 
   <!-- ============ SETUP ============ -->
@@ -35,7 +42,7 @@
       </div>
       <div class="row" style="margin-top:12px">
         <input type="file" id="file" accept=".txt" class="hidden">
-        <button class="ghost" onclick="document.getElementById('file').click()">Upload a .txt file</button>
+        <button class="ghost" id="btn-upload">Upload a .txt file</button>
         <button id="btn-analyze">Analyze this role</button>
       </div>
       <div id="err-setup" class="err"></div>
@@ -69,12 +76,15 @@
       <label style="margin-top:22px">Experience level (sets how hard the questions get)</label>
       <div class="row" id="a-level"></div>
 
-      <label style="margin-top:22px">How many questions</label>
-      <div class="row" id="a-count"></div>
+      <div id="a-options">
+        <label style="margin-top:22px">How many questions</label>
+        <div class="row" id="a-count"></div>
 
-      <label style="margin-top:22px">Spoken answers</label>
-      <div class="row" id="a-speech"></div>
-      <p class="muted" id="speech-note" style="margin:8px 0 0"></p>
+        <label style="margin-top:22px">Spoken answers</label>
+        <div class="row" id="a-speech"></div>
+        <p class="muted" id="speech-note" style="margin:8px 0 0"></p>
+      </div>
+      <p class="trial-note hidden" id="a-trial">Free trial: 5 multiple choice questions. <a href="#" id="a-trial-signup">Create a free account</a> for spoken answers and longer rounds.</p>
 
       <div class="row" style="margin-top:24px">
         <button id="btn-generate">Build my question set</button>
@@ -153,14 +163,143 @@
       <div id="d-lists"></div>
     </div>
 
+    <div class="card trial-card hidden" id="d-trial">
+      <h2>That was your free trial</h2>
+      <p class="muted">Create a free account to keep practising, with spoken answers and rounds of up to 30 questions. All it takes is a username and an email address.</p>
+      <button id="btn-trial-signup">Create a free account</button>
+    </div>
+
     <button id="btn-restart">Start another session</button>
+  </section>
+
+  <!-- ============ SIGN IN ============ -->
+  <section id="s-auth" class="hidden">
+    <div class="tag">Your account</div>
+    <h1 id="auth-title">Sign in to Prepwise</h1>
+    <p class="sub" id="auth-sub">No password needed. We send a 6 digit code instead.</p>
+    <div class="card">
+      <div class="row tabs" id="auth-tabs">
+        <button class="ghost" data-tab="signin">Sign in</button>
+        <button class="ghost" data-tab="signup">Create account</button>
+      </div>
+
+      <div id="auth-step-id">
+        <div id="auth-username-wrap">
+          <label for="auth-username">Username</label>
+          <input type="text" id="auth-username" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false">
+          <p class="field-note" id="auth-username-note">3 to 20 letters, numbers or underscores. Shown in the app, never used to sign in.</p>
+        </div>
+        <label for="auth-id" id="auth-id-label">Email</label>
+        <input type="text" id="auth-id" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">
+        <p class="field-note" id="auth-id-note"></p>
+        <div class="row" style="margin-top:14px">
+          <button id="btn-send-code">Send me a code</button>
+          <button class="ghost" id="btn-auth-back">Back</button>
+        </div>
+      </div>
+
+      <div id="auth-step-code" class="hidden">
+        <p id="auth-code-msg" class="muted"></p>
+        <label for="auth-code">6 digit code</label>
+        <input type="text" id="auth-code" class="code-input" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+        <div class="row" style="margin-top:14px">
+          <button id="btn-verify">Continue</button>
+          <button class="ghost" id="btn-resend">Send a new code</button>
+          <button class="ghost" id="btn-change-id">Use a different email</button>
+        </div>
+      </div>
+
+      <div id="auth-step-username" class="hidden">
+        <p class="muted" id="auth-claim-msg">One last thing: pick a username.</p>
+        <label for="claim-username">Username</label>
+        <input type="text" id="claim-username" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false">
+        <p class="field-note" id="claim-username-note">3 to 20 letters, numbers or underscores.</p>
+        <div class="row" style="margin-top:14px">
+          <button id="btn-claim">Save username</button>
+        </div>
+      </div>
+
+      <div id="err-auth" class="err"></div>
+    </div>
+  </section>
+
+  <!-- ============ ACCOUNT ============ -->
+  <section id="s-account" class="hidden">
+    <div class="tag">Your account</div>
+    <h1>Account</h1>
+    <p class="sub">Prepwise keeps only your username. Your email address is used only to send sign in codes.</p>
+
+    <div class="card">
+      <h2>Username</h2>
+      <p class="muted">Currently <strong id="acc-username"></strong>. You can change it once every 7 days.</p>
+      <label for="acc-new-username">New username</label>
+      <input type="text" id="acc-new-username" maxlength="20" autocapitalize="off" spellcheck="false">
+      <p class="field-note" id="acc-new-username-note">3 to 20 letters, numbers or underscores.</p>
+      <div class="row" style="margin-top:12px"><button id="btn-rename">Change username</button></div>
+      <div id="err-rename" class="err"></div>
+    </div>
+
+    <div class="card">
+      <h2 id="acc-contact-title">Email</h2>
+      <p class="muted">Currently <strong id="acc-contact"></strong>.</p>
+      <div id="acc-email-start">
+        <label for="acc-new-email">New email</label>
+        <input type="text" id="acc-new-email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false">
+        <div class="row" style="margin-top:12px"><button id="btn-email-start">Send confirmation codes</button></div>
+      </div>
+      <div id="acc-email-codes" class="hidden">
+        <p class="muted">We sent a code to each address. Both are needed, so nobody can move your account with only one of them.</p>
+        <label for="acc-code-new">Code sent to the new address</label>
+        <input type="text" id="acc-code-new" class="code-input" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+        <label for="acc-code-old" style="margin-top:12px">Code sent to your current address</label>
+        <input type="text" id="acc-code-old" class="code-input" maxlength="6" inputmode="numeric" autocomplete="off">
+        <div class="row" style="margin-top:12px">
+          <button id="btn-email-confirm">Change email</button>
+          <button class="ghost" id="btn-email-cancel">Cancel</button>
+        </div>
+      </div>
+      <div id="err-email" class="err"></div>
+    </div>
+
+    <div class="card">
+      <h2>Signed in devices</h2>
+      <p class="muted">You stay signed in until you sign out, or after 30 days without using Prepwise.</p>
+      <div class="row">
+        <button class="ghost" id="btn-signout">Sign out</button>
+        <button class="ghost" id="btn-signout-all">Sign out on all devices</button>
+      </div>
+      <div id="err-signout" class="err"></div>
+    </div>
+
+    <div class="card danger-card">
+      <h2>Delete account</h2>
+      <p class="muted">Deletes your account and everything saved with it, straight away. This cannot be undone. Your username stays reserved for 30 days, then anyone can take it.</p>
+      <label for="acc-delete-confirm">Type your username to confirm</label>
+      <input type="text" id="acc-delete-confirm" maxlength="20" autocapitalize="off" spellcheck="false">
+      <div id="acc-delete-code-wrap" class="hidden">
+        <p class="muted">For your safety, confirm with a code. We sent one to <strong id="acc-delete-contact"></strong>.</p>
+        <label for="acc-delete-code">6 digit code</label>
+        <input type="text" id="acc-delete-code" class="code-input" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+      </div>
+      <div class="row" style="margin-top:12px"><button class="danger" id="btn-delete">Delete my account</button></div>
+      <div id="err-delete" class="err"></div>
+    </div>
+
+    <button class="ghost" id="btn-acc-back">Back to Prepwise</button>
   </section>
 
 </div>
 
-<!-- config.js holds the Supabase URL and publishable key. It is gitignored,
-     and must load before app.js, which reads it on startup. -->
-<script src="config.js" onerror="window.PREPWISE_CONFIG=null"></script>
+<!-- Turnstile's bot check, shown only when Cloudflare needs a click. -->
+<div id="captcha" class="captcha"></div>
+
+<!-- Pinned to one exact build, and the browser refuses it if its hash differs. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+<!-- config.js holds the Supabase URL, publishable key and Turnstile site key.
+     It is gitignored, and must load before app.js, which reads it on startup. -->
+<script src="config.js"></script>
 <script src="app.js?v=dev"></script>
 </body>
 </html>

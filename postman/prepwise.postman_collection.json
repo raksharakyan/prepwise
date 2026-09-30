@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "7abfc525-e7a3-444a-9d81-bf688b74c6f3",
-    "name": "Prepwise AI backend v2",
-    "description": "Tests the Prepwise Supabase Edge Function, which builds the prompts server side and calls Google Gemini. Requests send a task name and its inputs, never a prompt.\n\nRun the folder in order. Each request feeds the next the way the app does: the job description analysis supplies the round type and topics for question generation, and the generated spoken question is what gets graded.\n\nA full run costs 4 Gemini requests. The free tier allows roughly 20 a day, so do not run it in a loop. The first request is free: it checks the backend rejects calls without a key.",
+    "name": "Prepwise AI backend v3",
+    "description": "Tests the Prepwise Supabase Edge Functions: gemini, which builds the prompts server side and calls Google Gemini, and account, which checks usernames. Requests send a task name and its inputs, never a prompt.\n\ngemini needs a signed in user. Before running, paste a fresh access token into the userAccessToken variable, and a guest one into guestAccessToken (postman/README.md says how). Tokens last an hour.\n\nRun in order. The AI requests chain the way the app does. A full run costs 4 Gemini requests on a free tier of roughly 20 a day, so do not run it in a loop. Every other request is free.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -42,11 +42,26 @@
     {
       "key": "topics_json",
       "value": "[]"
+    },
+    {
+      "key": "userAccessToken",
+      "value": "",
+      "description": "Access token of a signed in test account. Expires after an hour."
+    },
+    {
+      "key": "guestAccessToken",
+      "value": "",
+      "description": "Access token of a guest (anonymous) session. Expires after an hour."
+    },
+    {
+      "key": "existingUsername",
+      "value": "",
+      "description": "A username that already exists, typed in different capitals to prove the check ignores case."
     }
   ],
   "item": [
     {
-      "name": "0. Security: rejects calls without a key",
+      "name": "0a. Security: rejects calls without a key",
       "request": {
         "description": "Sends no Authorization header. Must be refused by Supabase before any Gemini call is made, so it costs no quota.",
         "method": "POST",
@@ -91,9 +106,9 @@
       ]
     },
     {
-      "name": "1. Job description analysis",
+      "name": "0b. Security: the publishable key alone is refused",
       "request": {
-        "description": "Classifies the round and extracts focus topics. Saves round_type and topics for the next requests.",
+        "description": "The publishable key ships in the page, so it must not be enough to spend the Gemini quota. Refused before any Gemini call, so free.",
         "method": "POST",
         "header": [
           {
@@ -103,6 +118,64 @@
           {
             "key": "Authorization",
             "value": "Bearer {{publishableKey}}"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/gemini",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "gemini"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"task\": \"analyze\",\n  \"input\": {\n    \"jd\": \"Refused before any prompt is built, so this text never matters.\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Refused without a signed in user (401)\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Says sign in is required\", () => pm.expect(pm.response.json().error.code).to.eql(\"auth_required\"));",
+              "pm.test(\"Does not reach Gemini\", () => pm.expect(pm.response.text()).to.not.include(\"candidates\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Job description analysis",
+      "request": {
+        "description": "Classifies the round and extracts focus topics. Saves round_type and topics for the next requests.\n\nSent as the signed in test account (userAccessToken).",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userAccessToken}}"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
           }
         ],
         "url": {
@@ -171,7 +244,7 @@
     {
       "name": "2. Question batch generation",
       "request": {
-        "description": "Generates one batch of 5 questions from the analysis. Checks structure, the single spoken question, and that no option depends on its position.",
+        "description": "Generates one batch of 5 questions from the analysis. Checks structure, the single spoken question, and that no option depends on its position.\n\nSent as the signed in test account (userAccessToken).",
         "method": "POST",
         "header": [
           {
@@ -180,7 +253,11 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{publishableKey}}"
+            "value": "Bearer {{userAccessToken}}"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
           }
         ],
         "url": {
@@ -254,7 +331,7 @@
     {
       "name": "3. Spoken answer grading",
       "request": {
-        "description": "Grades a sample transcript against the spoken question generated in step 2.",
+        "description": "Grades a sample transcript against the spoken question generated in step 2.\n\nSent as the signed in test account (userAccessToken).",
         "method": "POST",
         "header": [
           {
@@ -263,7 +340,11 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{publishableKey}}"
+            "value": "Bearer {{userAccessToken}}"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
           }
         ],
         "url": {
@@ -320,7 +401,7 @@
     {
       "name": "4. Session debrief",
       "request": {
-        "description": "Writes the end of session debrief from a sample results summary.",
+        "description": "Writes the end of session debrief from a sample results summary.\n\nSent as the signed in test account (userAccessToken).",
         "method": "POST",
         "header": [
           {
@@ -329,7 +410,11 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{publishableKey}}"
+            "value": "Bearer {{userAccessToken}}"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
           }
         ],
         "url": {
@@ -389,6 +474,254 @@
               "pm.test(\"No em dashes in the copy\", () => {",
               "  pm.expect(JSON.stringify(data)).to.not.include(\"—\");",
               "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5a. Username check: badly formed",
+      "request": {
+        "description": "Too short. Free.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/account",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "account"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"check_username\",\n  \"username\": \"ab\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Status is invalid\", () => pm.expect(pm.response.json().status).to.eql(\"invalid\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5b. Username check: reserved lookalike",
+      "request": {
+        "description": "adm1n_ reads as admin once digits and underscores are handled. Free.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/account",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "account"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"check_username\",\n  \"username\": \"adm1n_\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Status is reserved\", () => pm.expect(pm.response.json().status).to.eql(\"reserved\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5c. Username check: taken, any capitals",
+      "request": {
+        "description": "Set existingUsername to a real username with its capitals changed. Free.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/account",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "account"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"check_username\",\n  \"username\": \"{{existingUsername}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Status is taken\", () => pm.expect(pm.response.json().status).to.eql(\"taken\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5d. Username check: answers only a status",
+      "request": {
+        "description": "The reply must not carry anything about the account behind a name. Free.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/account",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "account"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"check_username\",\n  \"username\": \"{{existingUsername}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Only a status comes back\", () => pm.expect(Object.keys(pm.response.json())).to.eql([\"status\"]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Guest trial: spoken answer grading is refused",
+      "request": {
+        "description": "Guests get multiple choice only. Refused before any Gemini call, so free.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{guestAccessToken}}"
+          },
+          {
+            "key": "apikey",
+            "value": "{{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/gemini",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "gemini"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"task\": \"grade\",\n  \"input\": {\n    \"question\": \"q\",\n    \"keyPoints\": \"k\",\n    \"transcript\": \"a long enough answer to grade\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Refused (403)\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Says the trial is used\", () => pm.expect(pm.response.json().error.code).to.eql(\"trial_used\"));"
             ]
           }
         }
