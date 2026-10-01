@@ -9,71 +9,15 @@
 // Gemini's response body and status code are returned verbatim, so the client
 // keeps its own parsing, retry and error handling unchanged.
 //
-// Every call needs a signed in user, either a real account or a guest (a
-// Supabase anonymous user). The publishable key alone is refused, so the
-// Gemini quota can no longer be spent by anyone who reads the page source.
-// Guests get one trial: a 5 question multiple choice round, enforced here and
-// not in the page. Signed in users get a daily cap.
-//
 // Secrets this function needs:
-//   GEMINI_API_KEY    required
-//   RATE_LIMIT_SALT   required, any long random string; IPs are hashed with it
-//   GEMINI_MODEL      optional, defaults to gemini-3.6-flash
-//   ALLOWED_ORIGINS   optional, comma separated; defaults to the Replit site
-// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
+//   GEMINI_API_KEY   required
+//   GEMINI_MODEL     optional, defaults to gemini-3.6-flash
 
-import { createClient, type User } from "npm:@supabase/supabase-js@2.117.2";
-
-const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://prepwise--raksharakyan.replit.app")
-  .split(",").map(o => o.trim()).filter(Boolean);
-const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
-
-// Browsers only honour a response for the origin it names, so another site
-// cannot call this from a visitor's browser with the visitor's session.
-function corsFor(req: Request): Record<string, string> {
-  const origin = req.headers.get("origin") ?? "";
-  return {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) || LOCAL_ORIGIN.test(origin) ? origin : ALLOWED_ORIGINS[0],
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
-
-const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-
-// Checked with Supabase Auth, not just decoded, so a token from a session that
-// was signed out (including "sign out everywhere") stops working here too.
-async function callerFrom(req: Request): Promise<User | null> {
-  const h = req.headers.get("authorization") ?? "";
-  const token = h.startsWith("Bearer ") ? h.slice(7).trim() : "";
-  if (!token || token.startsWith("sb_")) return null;
-  const { data, error } = await admin.auth.getUser(token);
-  return error || !data.user ? null : data.user;
-}
-
-// The caller's IP, hashed with a secret so no raw IP is ever stored. The first
-// x-forwarded-for entry can be forged, which is why the guest limit per IP is
-// a backstop on top of the per guest limit and Turnstile, never the only check.
-async function ipKey(req: Request): Promise<string> {
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  const salt = new TextEncoder().encode(Deno.env.get("RATE_LIMIT_SALT")!);
-  const k = await crypto.subtle.importKey("raw", salt, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(ip));
-  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
-  const { data, error } = await admin.rpc(fn, args);
-  if (error) throw new Error(fn + " failed: " + error.message);
-  return data as T;
-}
-
-const DAY = 86400;
-const GUEST_QUESTION_SETS_PER_IP_PER_DAY = 2;
-const USER_CALLS_PER_DAY = 150;
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.6-flash";
 
@@ -204,27 +148,20 @@ const TASKS: Record<string, (i: Record<string, unknown>) => Built | string> = {
   debrief: debriefPrompt,
 };
 
-Deno.serve(async (req: Request) => {
-  const CORS = corsFor(req);
-  const json = (body: unknown, status: number) => new Response(JSON.stringify(body), {
+function json(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
     status,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
+}
 
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: { message: "Use POST." } }, 405);
 
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) {
     return json({ error: { message: "GEMINI_API_KEY is not set on this function." } }, 500);
-  }
-  if (!Deno.env.get("RATE_LIMIT_SALT")) {
-    return json({ error: { message: "RATE_LIMIT_SALT is not set on this function." } }, 500);
-  }
-
-  const user = await callerFrom(req);
-  if (!user) {
-    return json({ error: { code: "auth_required", message: "Sign in, or start the free trial, first." } }, 401);
   }
 
   let body: Record<string, unknown>;
@@ -234,61 +171,13 @@ Deno.serve(async (req: Request) => {
     return json({ error: { message: "Request body must be JSON." } }, 400);
   }
 
-  // Own keys only, so a task such as "constructor" is not found on the prototype.
-  const task = str(body.task, 20);
-  const build = Object.hasOwn(TASKS, task) ? TASKS[task] : null;
+  const build = TASKS[str(body.task, 20)];
   if (!build) {
     return json({ error: { message: "task must be one of: " + Object.keys(TASKS).join(", ") + "." } }, 400);
   }
   const input = body.input && typeof body.input === "object" ? body.input as Record<string, unknown> : {};
-
-  // Guest trial rules. The trial's shape is forced here rather than trusted
-  // from the page: one batch of 5, multiple choice only.
-  const guest = !!user.is_anonymous;
-  const trialUsed = () => json({ error: { code: "trial_used",
-    message: "You have used your free trial. Create a free account to keep practising." } }, 403);
-  let guestIp = "";
-  let counted = false;
-  try {
-    if (guest) {
-      if (task === "grade") return trialUsed();
-      if (task === "questions") Object.assign(input, { total: 1, batch: 0, want: 5, speech: false });
-      if (!await rpc<boolean>("consume_guest_call", { p_user: user.id, p_task: task })) return trialUsed();
-      counted = true;
-      if (task === "questions") {
-        guestIp = await ipKey(req);
-        const ok = await rpc<boolean>("hit_rate_limit",
-          { p_bucket: "guest_questions_ip", p_key: guestIp, p_window_seconds: DAY, p_max: GUEST_QUESTION_SETS_PER_IP_PER_DAY });
-        if (!ok) {
-          await rpc("refund_guest_call", { p_user: user.id, p_task: task });
-          return trialUsed();
-        }
-      }
-    } else if (!await rpc<boolean>("hit_rate_limit",
-        { p_bucket: "user_calls", p_key: user.id, p_window_seconds: DAY, p_max: USER_CALLS_PER_DAY })) {
-      return json({ error: { code: "user_daily_limit",
-        message: "You have reached today's practice limit. It resets in 24 hours." } }, 403);
-    }
-  } catch (e) {
-    // Fail closed: if the counters cannot be checked, no Gemini call is made.
-    return json({ error: { message: (e as Error).message } }, 500);
-  }
-
-  // A guest call that fails upstream, or comes back empty, is handed back, so
-  // a busy Gemini and the page's retries do not use up the trial.
-  const refund = async () => {
-    if (!counted) return;
-    await rpc("refund_guest_call", { p_user: user.id, p_task: task }).catch(() => {});
-    if (guestIp) {
-      await rpc("refund_rate_limit", { p_bucket: "guest_questions_ip", p_key: guestIp, p_window_seconds: DAY }).catch(() => {});
-    }
-  };
-
   const built = build(input);
-  if (typeof built === "string") {
-    await refund();
-    return json({ error: { message: built } }, 400);
-  }
+  if (typeof built === "string") return json({ error: { message: built } }, 400);
 
   const generationConfig: Record<string, unknown> = {
     temperature: 0.7,
@@ -303,35 +192,21 @@ Deno.serve(async (req: Request) => {
     generationConfig.thinkingConfig = { thinkingBudget: 0 };
   }
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: built.prompt }] }],
-          generationConfig,
-        }),
-      },
-    );
-  } catch (e) {
-    await refund();
-    return json({ error: { message: "Could not reach Gemini: " + (e as Error).message } }, 502);
-  }
+  const upstream = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: built.prompt }] }],
+        generationConfig,
+      }),
+    },
+  );
 
   // Pass the body and status straight through so the client sees real Gemini
   // errors, including the 429 and 503 it already knows how to retry.
   const text = await upstream.text();
-  if (counted) {
-    let empty = true;
-    try {
-      const parts = JSON.parse(text)?.candidates?.[0]?.content?.parts ?? [];
-      empty = !parts.some((p: { text?: string }) => (p.text ?? "").trim());
-    } catch { /* unreadable counts as empty */ }
-    if (!upstream.ok || empty) await refund();
-  }
   return new Response(text, {
     status: upstream.status,
     headers: { ...CORS, "Content-Type": "application/json" },

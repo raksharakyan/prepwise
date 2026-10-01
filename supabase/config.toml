@@ -5,12 +5,8 @@
 # The GitHub integration reads this file to know which project to deploy to.
 project_id = "hvseavmnyhwybklmqvvc"
 
-# Both functions check the caller themselves, with Supabase Auth, inside the
-# code. The platform's own JWT check stays off because it rejects the new
-# sb_publishable_ keys outright, and because account's username check has to
-# work before anyone has signed in.
 [functions.gemini]
-verify_jwt = false
-
-[functions.account]
+# The page calls this without a Supabase session, so the platform must not
+# reject the request before it reaches our code. Leave this false until sign in
+# exists, then flip it to true and drop the manual check in the function.
 verify_jwt = false

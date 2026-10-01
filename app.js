@@ -40,7 +40,7 @@ const LADDERS = {
 const $ = id => document.getElementById(id);
 let screen = "s-setup";
 const show = id => {
-  ["s-setup","s-analysis","s-gen","s-battle","s-debrief","s-auth","s-account"].forEach(s => $(s).classList.add("hidden"));
+  ["s-setup","s-analysis","s-gen","s-battle","s-debrief"].forEach(s => $(s).classList.add("hidden"));
   $(id).classList.remove("hidden");
   window.scrollTo(0, 0);
   screen = id;
@@ -78,20 +78,16 @@ async function gemini(task, input, attempt) {
 // Every call goes through the Supabase Edge Function, which holds the API key
 // and builds the prompt from the task name and inputs sent here. The prompts
 // live only on the server, so they are not readable from the page source. The
-// function returns Gemini's response body verbatim. It needs a signed in
-// user: a real account, or a guest on the free trial.
+// function returns Gemini's response body verbatim.
 function hasBackend() {
   return !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
 }
 
 async function geminiOnce(task, input) {
   const url = CFG.SUPABASE_URL.replace(/\/+$/, "") + "/functions/v1/gemini";
-  const token = await accessToken();
-  if (!token) throw authError("Sign in, or start the free trial, first.", "auth_required");
   const headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer " + token,
-    "apikey": CFG.SUPABASE_ANON_KEY
+    "Authorization": "Bearer " + CFG.SUPABASE_ANON_KEY
   };
   const payload = { task: task, input: input };
 
@@ -120,10 +116,7 @@ async function geminiOnce(task, input) {
   if (!res.ok) {
     const body = await res.text();
     let detail = body;
-    let code = "";
-    try { detail = JSON.parse(body).error.message; code = JSON.parse(body).error.code || ""; } catch (e) {}
-    // Refusals from our own backend, not Gemini, and never worth retrying.
-    if (code === "trial_used" || code === "auth_required" || code === "user_daily_limit") throw authError(detail, code);
+    try { detail = JSON.parse(body).error.message; } catch (e) {}
     // The free tier allows about 20 requests a day. Once that is gone every
     // retry fails the same way until the quota resets, so say so plainly
     // instead of retrying. Short per minute limits are also 429s, but their
@@ -162,12 +155,6 @@ async function geminiOnce(task, input) {
   }
 }
 
-function authError(message, code) {
-  const e = new Error(message);
-  e.code = code;
-  return e;
-}
-
 // Gemini's daily quota resets at midnight Pacific time. Shown in the viewer's
 // own time zone, since most viewers are not in California.
 function dailyLimitMessage() {
@@ -193,541 +180,6 @@ if (!hasBackend()) {
   setErr("err-setup",
     "No AI backend configured.\n\nSet SUPABASE_URL and SUPABASE_ANON_KEY in config.js. Copy config.example.js to config.js to start.");
   $("btn-analyze").disabled = true;
-}
-
-/* ---------------- accounts ----------------
-   Passwordless: a 6 digit code to an email address (phone once an SMS
-   provider is connected, see PHONE_AUTH in config.js). Supabase Auth owns the
-   address and the session; Prepwise itself stores only a username.
-
-   Sign in and Create account send the same request and show the same
-   message, whether or not the address already has an account, so this page
-   cannot be used to find out who uses Prepwise. A new account picks its
-   username after the code is confirmed, and the name is only reserved then.
-
-   Anyone can try one round first as a guest: a Supabase anonymous user,
-   limited by the gemini function to 5 multiple choice questions. */
-const sb = hasBackend() && window.supabase
-  ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "prepwise.auth" }
-    })
-  : null;
-if (hasBackend() && !sb) {
-  setErr("err-setup", "The sign in library did not load. Check your connection and reload the page.");
-  $("btn-analyze").disabled = true;
-}
-
-const AUTH = {
-  user: null,
-  profile: null,
-  mode: "signin",      // or "signup"
-  id: null,            // { kind: "email" | "phone", value }
-  username: "",        // chosen on Create account, claimed after the code
-  returnTo: "s-setup",
-  resendAt: 0
-};
-const TRIAL_KEY = "prepwise.trialUsed";
-const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-const isGuest = () => !AUTH.user || !!AUTH.user.is_anonymous;
-const hasAccount = () => !!(AUTH.user && !AUTH.user.is_anonymous && AUTH.profile);
-
-async function accessToken() {
-  if (!sb) return "";
-  const { data } = await sb.auth.getSession();
-  return data.session ? data.session.access_token : "";
-}
-
-function trialUsedHere() {
-  try { return localStorage.getItem(TRIAL_KEY) === "1"; } catch (e) { return false; }
-}
-function markTrialUsed() {
-  try { localStorage.setItem(TRIAL_KEY, "1"); } catch (e) {}
-}
-
-// A guest session for the free trial, made only when a guest first clicks
-// Analyze, so visitors who only look around never create one.
-async function ensureSession() {
-  const { data } = await sb.auth.getSession();
-  if (data.session) return;
-  const captchaToken = await captcha();
-  const { error } = await sb.auth.signInAnonymously({ options: { captchaToken } });
-  if (error) throw new Error("Could not start the free trial: " + error.message);
-}
-
-/* Cloudflare Turnstile. A fresh widget per token, since each token works
-   once. Most people never see it; Cloudflare shows a checkbox only when it
-   is unsure. Without a site key in config.js (local development) it is
-   skipped, and Supabase refuses the request if the project requires it. */
-let captchaWidget = null;
-function captcha() {
-  if (!CFG.TURNSTILE_SITE_KEY) return Promise.resolve(undefined);
-  if (!window.turnstile) return Promise.reject(new Error("The security check did not load. Reload the page and try again."));
-  return new Promise((resolve, reject) => {
-    if (captchaWidget !== null) { try { window.turnstile.remove(captchaWidget); } catch (e) {} }
-    captchaWidget = window.turnstile.render("#captcha", {
-      sitekey: CFG.TURNSTILE_SITE_KEY,
-      appearance: "interaction-only",
-      callback: token => resolve(token),
-      "error-callback": () => reject(new Error("The security check failed. Reload the page and try again.")),
-      "timeout-callback": () => reject(new Error("The security check timed out. Try again."))
-    });
-  });
-}
-
-/* Email, or phone in international format. Phone is recognised even while
-   switched off, so someone who types a number is told why it does not work. */
-function parseIdentifier(raw) {
-  const v = raw.trim();
-  if (/^\+?[\d\s\-().]{7,}$/.test(v)) {
-    if (!CFG.PHONE_AUTH) return { error: "Phone sign in is coming soon. Use your email address for now." };
-    const digits = v.replace(/\D/g, "");
-    if (!v.startsWith("+") || digits.length < 8 || digits.length > 15) {
-      return { error: "Enter the number with its country code, for example +91 98765 43210." };
-    }
-    return { kind: "phone", value: "+" + digits };
-  }
-  const email = v.toLowerCase();
-  if (email.length > 254 || !EMAIL_RE.test(email)) return { error: "Enter a valid email address." };
-  return { kind: "email", value: email };
-}
-
-function otpPayload(id, extra) {
-  return Object.assign(id.kind === "phone" ? { phone: id.value } : { email: id.value }, extra || {});
-}
-
-/* ---- the account backend (username check, account deletion) ---- */
-async function accountCall(body) {
-  const url = CFG.SUPABASE_URL.replace(/\/+$/, "") + "/functions/v1/account";
-  const headers = { "Content-Type": "application/json", "apikey": CFG.SUPABASE_ANON_KEY };
-  const token = await accessToken();
-  if (token) headers.Authorization = "Bearer " + token;
-  let res;
-  try {
-    res = await fetch(url, { method: "POST", headers: headers, body: JSON.stringify(body) });
-  } catch (e) {
-    throw new Error("Could not reach Prepwise. Check your connection and try again.");
-  }
-  const j = await res.json().catch(() => ({}));
-  if (!res.ok) throw authError((j.error && j.error.message) || "Something went wrong (" + res.status + ").", j.error && j.error.code);
-  return j;
-}
-
-const USERNAME_WORDS = {
-  ok: ["good", "Available."],
-  taken: ["bad", "That username is taken."],
-  reserved: ["bad", "That username is not allowed. Try another."],
-  invalid: ["bad", "Use 3 to 20 letters, numbers or underscores."],
-  too_soon: ["bad", "You can change your username once every 7 days."]
-};
-
-// Checked in the page first, so malformed names never reach the server, then
-// debounced, so typing a name spends one check rather than one per key.
-function wireUsernameField(input, note, defaultNote) {
-  let timer = null;
-  let seq = 0;
-  const paint = (kind, text) => {
-    note.className = "field-note" + (kind ? " " + kind : "");
-    note.textContent = text;
-  };
-  input.addEventListener("input", () => {
-    clearTimeout(timer);
-    const name = input.value.trim();
-    input.dataset.status = "";
-    if (!name) return paint("", defaultNote);
-    if (!USERNAME_RE.test(name)) return paint("bad", USERNAME_WORDS.invalid[1]);
-    paint("", "Checking");
-    const mine = ++seq;
-    timer = setTimeout(async () => {
-      try {
-        const r = await accountCall({ action: "check_username", username: name });
-        if (mine !== seq) return;
-        input.dataset.status = r.status;
-        const w = USERNAME_WORDS[r.status] || USERNAME_WORDS.invalid;
-        paint(w[0], w[1]);
-      } catch (e) {
-        if (mine === seq) paint("bad", e.message);
-      }
-    }, 400);
-  });
-}
-
-wireUsernameField($("auth-username"), $("auth-username-note"),
-  "3 to 20 letters, numbers or underscores. Shown in the app, never used to sign in.");
-wireUsernameField($("claim-username"), $("claim-username-note"), "3 to 20 letters, numbers or underscores.");
-wireUsernameField($("acc-new-username"), $("acc-new-username-note"), "3 to 20 letters, numbers or underscores.");
-
-/* ---- header ---- */
-function renderAcct() {
-  const box = $("acct");
-  if (!sb) { box.innerHTML = ""; return; }
-  if (hasAccount()) {
-    box.innerHTML = '<button class="ghost chip" id="btn-account">' + esc(AUTH.profile.username) + '</button>';
-    $("btn-account").onclick = openAccount;
-  } else {
-    box.innerHTML = (AUTH.user && AUTH.user.is_anonymous ? '<span class="guest-tag">Guest trial</span>' : "") +
-      '<button class="ghost chip" id="btn-signin">Sign in</button>';
-    $("btn-signin").onclick = () => openAuth("signin");
-  }
-}
-
-async function loadProfile() {
-  AUTH.profile = null;
-  if (AUTH.user && !AUTH.user.is_anonymous) {
-    const { data } = await sb.from("profiles").select("username").maybeSingle();
-    AUTH.profile = data || null;
-  }
-  renderAcct();
-}
-
-/* ---- sign in screen ---- */
-function openAuth(mode, reason) {
-  if (screen !== "s-auth" && screen !== "s-account") AUTH.returnTo = screen;
-  setAuthMode(mode || "signin");
-  authStep("id");
-  $("auth-title").textContent = reason === "trial" ? "Keep practising with a free account" : "Sign in to Prepwise";
-  $("auth-sub").textContent = reason === "trial"
-    ? "You have used your free trial. A free account unlocks spoken answers and rounds of up to 30 questions."
-    : "No password needed. We send a 6 digit code instead.";
-  $("auth-tabs").classList.remove("hidden");
-  $("btn-auth-back").classList.remove("hidden");
-  show("s-auth");
-  (mode === "signup" ? $("auth-username") : $("auth-id")).focus();
-}
-
-function setAuthMode(mode) {
-  AUTH.mode = mode;
-  $("auth-tabs").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.tab === mode));
-  $("auth-username-wrap").classList.toggle("hidden", mode !== "signup");
-  $("auth-id-label").textContent = CFG.PHONE_AUTH ? "Email or phone number" : "Email";
-  $("btn-send-code").textContent = mode === "signup" ? "Create account" : "Send me a code";
-  setErr("err-auth", "");
-}
-
-function authStep(step) {
-  ["id", "code", "username"].forEach(s => $("auth-step-" + s).classList.toggle("hidden", s !== step));
-  setErr("err-auth", "");
-}
-
-$("auth-tabs").querySelectorAll("button").forEach(b => b.onclick = () => setAuthMode(b.dataset.tab));
-$("btn-auth-back").onclick = () => show(AUTH.returnTo === "s-auth" ? "s-setup" : AUTH.returnTo);
-$("auth-id").addEventListener("input", () => { $("auth-id-note").textContent = ""; });
-
-// Codes are sent with shouldCreateUser on for both tabs. With it off,
-// Supabase answers differently for addresses that have no account, which
-// would tell anyone who asks whether an address is registered.
-async function sendCode(id) {
-  const captchaToken = await captcha();
-  const { error } = await sb.auth.signInWithOtp(otpPayload(id, { options: { shouldCreateUser: true, captchaToken: captchaToken } }));
-  if (error) {
-    throw new Error(error.status === 429
-      ? "Too many codes asked for. Wait a minute, then try again."
-      : "Could not send a code right now. Wait a minute, then try again.");
-  }
-  AUTH.resendAt = Date.now() + 60000;
-  tickResend();
-}
-
-function tickResend() {
-  const left = Math.ceil((AUTH.resendAt - Date.now()) / 1000);
-  const btn = $("btn-resend");
-  btn.disabled = left > 0;
-  btn.textContent = left > 0 ? "Send a new code (" + left + "s)" : "Send a new code";
-  if (left > 0) setTimeout(tickResend, 1000);
-}
-
-$("btn-send-code").onclick = async () => {
-  setErr("err-auth", "");
-  const id = parseIdentifier($("auth-id").value);
-  if (id.error) return setErr("err-auth", id.error);
-  let name = "";
-  if (AUTH.mode === "signup") {
-    name = $("auth-username").value.trim();
-    if (!USERNAME_RE.test(name)) return setErr("err-auth", USERNAME_WORDS.invalid[1]);
-    // The field's live check may still be waiting; ask once more to be sure.
-    try {
-      const r = await accountCall({ action: "check_username", username: name });
-      if (r.status !== "ok") return setErr("err-auth", (USERNAME_WORDS[r.status] || USERNAME_WORDS.invalid)[1]);
-    } catch (e) { return setErr("err-auth", e.message); }
-  }
-  const btn = $("btn-send-code");
-  btn.disabled = true;
-  try {
-    await sendCode(id);
-    AUTH.id = id;
-    AUTH.username = name;
-    const where = id.kind === "phone" ? "that number can receive texts" : "that address can receive email";
-    $("auth-code-msg").textContent = "If " + where + ", a 6 digit code is on its way to " + id.value +
-      ". It works for 10 minutes. Check your spam folder if it does not arrive.";
-    $("btn-change-id").textContent = id.kind === "phone" ? "Use a different number" : "Use a different email";
-    $("auth-code").value = "";
-    authStep("code");
-    $("auth-code").focus();
-  } catch (e) {
-    setErr("err-auth", e.message);
-  } finally {
-    btn.disabled = false;
-  }
-};
-
-$("btn-resend").onclick = async () => {
-  setErr("err-auth", "");
-  try { await sendCode(AUTH.id); $("auth-code").focus(); } catch (e) { setErr("err-auth", e.message); }
-};
-
-$("btn-change-id").onclick = () => { authStep("id"); $("auth-id").focus(); };
-
-$("auth-code").addEventListener("input", e => {
-  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
-  if (e.target.value.length === 6) $("btn-verify").click();
-});
-
-$("btn-verify").onclick = async () => {
-  const code = $("auth-code").value;
-  if (!/^\d{6}$/.test(code)) return setErr("err-auth", "Enter the 6 digit code.");
-  const btn = $("btn-verify");
-  if (btn.disabled) return;
-  btn.disabled = true;
-  setErr("err-auth", "");
-  try {
-    const captchaToken = await captcha();
-    const { data, error } = await sb.auth.verifyOtp(otpPayload(AUTH.id,
-      { token: code, type: AUTH.id.kind === "phone" ? "sms" : "email", options: { captchaToken: captchaToken } }));
-    if (error || !data.user) throw new Error("That code is wrong or has expired. Check it, or send a new one.");
-    AUTH.user = data.user;
-    await loadProfile();
-    await afterSignIn();
-  } catch (e) {
-    setErr("err-auth", e.message);
-  } finally {
-    btn.disabled = false;
-  }
-};
-
-async function afterSignIn() {
-  // Someone who already had an account lands signed in, whichever tab they
-  // used: they have just proved they own the address, so that is safe.
-  if (AUTH.profile) return finishSignIn();
-  if (AUTH.username) {
-    const status = await claimUsername(AUTH.username);
-    if (status === "ok") return finishSignIn();
-    $("auth-claim-msg").textContent = (USERNAME_WORDS[status] || USERNAME_WORDS.invalid)[1] + " Pick another one.";
-  } else {
-    $("auth-claim-msg").textContent = "Welcome to Prepwise. One last thing: pick a username.";
-  }
-  $("auth-tabs").classList.add("hidden");
-  $("btn-auth-back").classList.add("hidden");
-  authStep("username");
-  $("claim-username").value = "";
-  $("claim-username").focus();
-}
-
-async function claimUsername(name) {
-  const { data, error } = await sb.rpc("claim_username", { name: name });
-  if (error) throw new Error("Could not save your username: " + error.message);
-  if (data === "ok") await loadProfile();
-  return data;
-}
-
-$("btn-claim").onclick = async () => {
-  const name = $("claim-username").value.trim();
-  if (!USERNAME_RE.test(name)) return setErr("err-auth", USERNAME_WORDS.invalid[1]);
-  const btn = $("btn-claim");
-  btn.disabled = true;
-  setErr("err-auth", "");
-  try {
-    const status = await claimUsername(name);
-    if (status !== "ok") return setErr("err-auth", (USERNAME_WORDS[status] || USERNAME_WORDS.invalid)[1]);
-    finishSignIn();
-  } catch (e) {
-    setErr("err-auth", e.message);
-  } finally {
-    btn.disabled = false;
-  }
-};
-
-function finishSignIn() {
-  AUTH.username = "";
-  $("auth-tabs").classList.remove("hidden");
-  $("btn-auth-back").classList.remove("hidden");
-  const back = AUTH.returnTo;
-  // A signed in user is past the trial, so the analysis screen shows every option again.
-  if (back === "s-analysis" && S.analysis) { renderAnalysis(); return show("s-analysis"); }
-  if (back === "s-setup" || back === "s-debrief") return show("s-setup");
-  show(back || "s-setup");
-}
-
-/* ---- account screen ---- */
-function openAccount() {
-  if (!hasAccount()) return openAuth("signin");
-  if (screen !== "s-account" && screen !== "s-auth") AUTH.returnTo = screen;
-  $("acc-username").textContent = AUTH.profile.username;
-  const phone = !AUTH.user.email && AUTH.user.phone;
-  $("acc-contact-title").textContent = phone ? "Phone number" : "Email";
-  $("acc-contact").textContent = phone ? "+" + AUTH.user.phone : AUTH.user.email;
-  $("acc-email-start").classList.toggle("hidden", !!phone);
-  $("acc-email-codes").classList.add("hidden");
-  ["acc-new-username", "acc-new-email", "acc-delete-confirm", "acc-delete-code", "acc-code-new", "acc-code-old"]
-    .forEach(id => { $(id).value = ""; });
-  $("acc-delete-code-wrap").classList.add("hidden");
-  ["err-rename", "err-email", "err-signout", "err-delete"].forEach(id => setErr(id, ""));
-  show("s-account");
-}
-
-$("btn-acc-back").onclick = () => show(["s-auth", "s-account"].includes(AUTH.returnTo) ? "s-setup" : AUTH.returnTo);
-
-$("btn-rename").onclick = async () => {
-  const name = $("acc-new-username").value.trim();
-  if (!USERNAME_RE.test(name)) return setErr("err-rename", USERNAME_WORDS.invalid[1]);
-  setErr("err-rename", "");
-  const { data, error } = await sb.rpc("change_username", { name: name });
-  if (error) return setErr("err-rename", "Could not change your username: " + error.message);
-  if (data !== "ok") return setErr("err-rename", (USERNAME_WORDS[data] || USERNAME_WORDS.invalid)[1]);
-  await loadProfile();
-  $("acc-username").textContent = AUTH.profile.username;
-  $("acc-new-username").value = "";
-  $("acc-new-username-note").className = "field-note good";
-  $("acc-new-username-note").textContent = "Done. Your old username stays reserved for 30 days.";
-};
-
-// Supabase's secure email change: a code goes to the new address and one to
-// the current one, and the change happens only once both are entered.
-let pendingEmail = "";
-$("btn-email-start").onclick = async () => {
-  setErr("err-email", "");
-  const id = parseIdentifier($("acc-new-email").value);
-  if (id.error || id.kind !== "email") return setErr("err-email", "Enter a valid email address.");
-  if (id.value === AUTH.user.email) return setErr("err-email", "That is already your email.");
-  const { error } = await sb.auth.updateUser({ email: id.value });
-  if (error) {
-    return setErr("err-email", error.status === 429
-      ? "Too many codes asked for. Wait a minute, then try again."
-      : "That address cannot be used. Check it, or try a different one.");
-  }
-  pendingEmail = id.value;
-  $("acc-email-start").classList.add("hidden");
-  $("acc-email-codes").classList.remove("hidden");
-  $("acc-code-new").focus();
-};
-
-$("btn-email-cancel").onclick = () => {
-  $("acc-email-codes").classList.add("hidden");
-  $("acc-email-start").classList.remove("hidden");
-  setErr("err-email", "");
-};
-
-$("btn-email-confirm").onclick = async () => {
-  const codeNew = $("acc-code-new").value.trim();
-  const codeOld = $("acc-code-old").value.trim();
-  if (!/^\d{6}$/.test(codeNew) || !/^\d{6}$/.test(codeOld)) return setErr("err-email", "Enter both 6 digit codes.");
-  setErr("err-email", "");
-  const r1 = await sb.auth.verifyOtp({ email: pendingEmail, token: codeNew, type: "email_change" });
-  if (r1.error) return setErr("err-email", "The code for the new address is wrong or has expired.");
-  const r2 = await sb.auth.verifyOtp({ email: AUTH.user.email, token: codeOld, type: "email_change" });
-  if (r2.error) return setErr("err-email", "The code for your current address is wrong or has expired.");
-  const { data } = await sb.auth.getUser();
-  if (data.user) AUTH.user = data.user;
-  openAccount();
-  setErr("err-email", "");
-  $("acc-contact").textContent = AUTH.user.email;
-};
-
-$("btn-signout").onclick = () => signOut("local");
-$("btn-signout-all").onclick = () => signOut("global");
-
-async function signOut(scope) {
-  setErr("err-signout", "");
-  const { error } = await sb.auth.signOut({ scope: scope });
-  if (error && scope === "global") return setErr("err-signout", "Could not sign out everywhere: " + error.message);
-  resetAfterSignOut();
-}
-
-// The saved round belongs to whoever was signed in, so it goes too.
-function resetAfterSignOut() {
-  AUTH.user = null;
-  AUTH.profile = null;
-  try { sessionStorage.removeItem(SAVE_KEY); } catch (e) {}
-  S.questions = []; S.results = []; S.idx = 0; S.youHp = 100; S.bossHp = 100; S.debrief = null; S.analysis = null;
-  renderAcct();
-  show("s-setup");
-}
-
-// Deleting needs a code entered in the last 10 minutes. The first click
-// asks the server; if the sign in is older than that, a code is sent and the
-// second click, with the code, confirms and deletes.
-$("btn-delete").onclick = async () => {
-  setErr("err-delete", "");
-  if ($("acc-delete-confirm").value.trim().toLowerCase() !== AUTH.profile.username.toLowerCase()) {
-    return setErr("err-delete", "Type your username exactly to confirm.");
-  }
-  const btn = $("btn-delete");
-  btn.disabled = true;
-  try {
-    const waiting = !$("acc-delete-code-wrap").classList.contains("hidden");
-    if (waiting) {
-      const code = $("acc-delete-code").value.trim();
-      if (!/^\d{6}$/.test(code)) throw new Error("Enter the 6 digit code.");
-      const captchaToken = await captcha();
-      const { error } = await sb.auth.verifyOtp(otpPayload(AUTH.id,
-        { token: code, type: AUTH.id.kind === "phone" ? "sms" : "email", options: { captchaToken: captchaToken } }));
-      if (error) throw new Error("That code is wrong or has expired.");
-    }
-    await deleteAccount();
-  } catch (e) {
-    setErr("err-delete", e.message);
-  } finally {
-    btn.disabled = false;
-  }
-};
-
-async function deleteAccount() {
-  try {
-    await accountCall({ action: "delete_account" });
-  } catch (e) {
-    if (e.code !== "reauth_required") throw e;
-    AUTH.id = AUTH.user.email ? { kind: "email", value: AUTH.user.email } : { kind: "phone", value: "+" + AUTH.user.phone };
-    await sendCode(AUTH.id);
-    $("acc-delete-contact").textContent = AUTH.id.value;
-    $("acc-delete-code-wrap").classList.remove("hidden");
-    $("acc-delete-code").focus();
-    return;
-  }
-  // The user no longer exists, so only this browser's copy of the session is cleared.
-  await sb.auth.signOut({ scope: "local" }).catch(() => {});
-  try { localStorage.removeItem(SEEN_KEY); } catch (e) {}
-  resetAfterSignOut();
-  setErr("err-setup", "");
-  $("err-setup").innerHTML = '<span class="toast">Your account has been deleted.</span>';
-}
-
-/* ---- start up ---- */
-async function initAuth() {
-  if (!sb) return renderAcct();
-  const { data } = await sb.auth.getSession();
-  AUTH.user = data.session ? data.session.user : null;
-  await loadProfile();
-  // Confirmed a code earlier but never picked a username, for example by
-  // closing the tab. Finish that before anything else.
-  if (AUTH.user && !AUTH.user.is_anonymous && !AUTH.profile) {
-    AUTH.returnTo = "s-setup";
-    AUTH.username = "";
-    await afterSignIn();
-    show("s-auth");
-  } else if (screen === "s-analysis" && S.analysis) {
-    renderAnalysis();
-  } else if (screen === "s-debrief") {
-    $("d-trial").classList.toggle("hidden", !isGuest());
-  }
-  sb.auth.onAuthStateChange((event, session) => {
-    // Signed out here, in another tab, or everywhere from another device.
-    if (event === "SIGNED_OUT") return setTimeout(resetAfterSignOut, 0);
-    if (!session) return;
-    AUTH.user = session.user;
-    // A new guest session shows "Guest trial" in the header. A real sign in
-    // redraws the header itself once its username has loaded.
-    if (event === "SIGNED_IN" && session.user.is_anonymous) setTimeout(renderAcct, 0);
-  });
 }
 
 /* ---------------- example job descriptions ----------------
@@ -791,8 +243,6 @@ document.querySelectorAll("[data-example]").forEach(b => b.addEventListener("cli
   $("btn-analyze").focus();
 }));
 
-$("btn-upload").onclick = () => $("file").click();
-
 $("file").addEventListener("change", e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -810,15 +260,12 @@ $("btn-analyze").addEventListener("click", async () => {
   if (!hasBackend()) return setErr("err-setup", "No AI backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js and reload.");
   if (S.jd.length < 60) return setErr("err-setup", "Paste a fuller job description so the analysis has something to work with.");
   S.nonTech = false;
-  // Only a hint for a friendlier path: the gemini function enforces the trial.
-  if (isGuest() && trialUsedHere()) return openAuth("signup", "trial");
 
   const btn = $("btn-analyze");
   btn.disabled = true;
   btn.textContent = "Analyzing";
   onRetry = msg => setErr("err-setup", msg);
   try {
-    if (isGuest()) await ensureSession();
     S.analysis = await gemini("analyze", { jd: S.jd });
     if (!ROUNDS.includes(S.analysis.round_type)) S.analysis.round_type = "Mixed";
     if (!Array.isArray(S.analysis.topics)) S.analysis.topics = [];
@@ -831,7 +278,6 @@ $("btn-analyze").addEventListener("click", async () => {
     renderAnalysis();
     show("s-analysis");
   } catch (e) {
-    if (e.code === "trial_used") { markTrialUsed(); return openAuth("signup", "trial"); }
     setErr("err-setup", e.message);
   } finally {
     onRetry = null;
@@ -875,12 +321,6 @@ $("btn-nontech-anyway").onclick = () => {
 
 /* ---------------- analysis screen ---------------- */
 function renderAnalysis() {
-  // The free trial is one 5 question multiple choice round. The server forces
-  // this too; hiding the choices just avoids offering what it would refuse.
-  const guest = isGuest();
-  if (guest) { S.count = 5; S.speech = false; }
-  $("a-options").classList.toggle("hidden", guest);
-  $("a-trial").classList.toggle("hidden", !guest);
   $("a-round").textContent = (S.nonTech ? S.roundType : S.analysis.round_type) + " round";
   $("a-override-wrap").classList.toggle("hidden", !!S.nonTech);
   $("a-reason").textContent = S.analysis.reasoning || "";
@@ -924,7 +364,6 @@ function renderAnalysis() {
 }
 
 $("btn-back").onclick = () => show("s-setup");
-$("a-trial-signup").onclick = e => { e.preventDefault(); openAuth("signup"); };
 
 function hasSpeechApi() {
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -978,7 +417,6 @@ function saveSeen(questions) {
 }
 
 $("btn-generate").addEventListener("click", async () => {
-  if (isGuest()) { S.count = 5; S.speech = false; }
   setErr("err-gen", "");
   S.questions = [];
   S.debrief = null;
@@ -1017,9 +455,7 @@ $("btn-generate").addEventListener("click", async () => {
       if (!clean.length) throw new Error("Batch " + (i + 1) + " came back empty.");
       S.questions = S.questions.concat(clean);
       saveSeen(clean.map(q => q.question));
-      if (isGuest()) markTrialUsed();
     } catch (e) {
-      if (e.code === "trial_used") { markTrialUsed(); return openAuth("signup", "trial"); }
       // Short of a usable set, stop and surface the real reason.
       if (S.questions.length < 5) {
         setErr("err-gen", e.daily ? e.message : e.message + "\n\nGo back and try again.");
@@ -1481,7 +917,6 @@ function stopMic() {
 /* ---------------- debrief ---------------- */
 async function runDebrief() {
   show("s-debrief");
-  $("d-trial").classList.toggle("hidden", !isGuest());
   const won = S.bossHp <= 0;
   const lost = S.youHp <= 0;
   $("d-title").textContent = won ? "You beat The Interviewer" : lost ? "The Interviewer got the better of you" : "Session complete";
@@ -1551,8 +986,6 @@ function listBlock(title, arr) {
     arr.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul>";
 }
 
-$("btn-trial-signup").onclick = () => openAuth("signup");
-
 $("btn-restart").onclick = () => {
   S.questions = []; S.results = []; S.idx = 0; S.youHp = 100; S.bossHp = 100; S.debrief = null;
   show("s-setup");
@@ -1613,4 +1046,3 @@ function restore() {
 try { restore(); } catch (e) { console.warn("Could not restore the saved session", e); }
 restored = true;
 save();
-initAuth().catch(e => console.warn("Could not load the sign in state", e));
