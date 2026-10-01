@@ -34,6 +34,7 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [x] Boss-battle style UI: HP bars, category tags per question, live progress
 - [x] A reload does not lose the round: the session (screen, question, HP, answers, a half typed answer, and the written debrief) is saved to the tab's sessionStorage and restored on load. A reload mid generation goes back to the analysis screen with the choices kept
 - [x] AI-generated debrief screen with category breakdown and strengths/focus areas/tip
+- [x] Question bank with RAG: optional Company and Role fields on the analysis screen (prefilled from the JD); each batch embeds the request, retrieves up to 6 close reports from `bank_questions` (Supabase pgvector, `match_bank_questions`, same company boosted, AI generated rows excluded), and bases 1 or 2 questions on them with a "Reported at X · Source" tag linking the report. A Make.com scenario fills the bank weekly through the `bank` Edge Function (Google Search grounding, Reddit's official API, and an Apify route for LinkedIn and Glassdoor that is off by default because both forbid scraping); generated batches are stored as source `prepwise`. Setup in `docs/question-bank-setup.md`
 - [x] Swap AI provider from Claude API (only free inside Claude.ai artifacts) to Google AI Studio's Gemini API using a real free-tier API key, so the app works once deployed outside Claude.ai
 - [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
 - [x] Supabase Edge Function holding the Gemini key server side, so the app can be deployed without exposing it
@@ -105,6 +106,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
 | Frontend | Replit (Lovable was intended, access never arrived) | Hosting the working HTML/JS prototype as a public web app |
 | Backend / Data | Supabase | Storing session history, quiz results, and progress over time |
+| Automation | Make.com (free plan) | Weekly scenario that collects reported interview questions into the question bank |
 | Testing | Postman | Collection in `postman/` that tests the live backend: a free security check that unauthenticated calls are refused, then the four AI calls chained the way the app runs them, each with structural assertions |
 
 ## 4-Week Sprint Timeline

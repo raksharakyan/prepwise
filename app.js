@@ -146,13 +146,30 @@ async function geminiOnce(task, input) {
   }
 
   const cleaned = raw.replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "").trim();
+  let parsed;
   try {
-    return JSON.parse(cleaned);
+    parsed = JSON.parse(cleaned);
   } catch (e) {
     const m = cleaned.match(/[\[{][\s\S]*[\]}]/);
-    if (m) { try { return JSON.parse(m[0]); } catch (e2) {} }
-    throw new Error("Could not read Gemini's reply as JSON. Try again.");
+    if (m) { try { parsed = JSON.parse(m[0]); } catch (e2) {} }
+    if (parsed === undefined) throw new Error("Could not read Gemini's reply as JSON. Try again.");
   }
+  return attachBank(parsed, data.prepwise_bank);
+}
+
+// A question batch can come with the bank reports it drew on. Each question
+// based on one carries its number in from_bank; swap that for the report's
+// details, so the question can show where it was reported.
+function attachBank(parsed, bank) {
+  if (!Array.isArray(parsed)) return parsed;
+  return parsed.map(q => {
+    if (!q || typeof q !== "object") return q;
+    const ref = Array.isArray(bank) ? bank.find(b => b.n === Math.trunc(Number(q.from_bank))) : null;
+    const out = Object.assign({}, q);
+    delete out.from_bank;
+    if (ref) out.bank = { id: ref.id, company: ref.company || "", source: ref.source || "", url: ref.source_url || "" };
+    return out;
+  });
 }
 
 // Gemini's daily quota resets at midnight Pacific time. Shown in the viewer's
@@ -272,6 +289,8 @@ $("btn-analyze").addEventListener("click", async () => {
     S.roundType = S.analysis.round_type;
     if (!LEVELS.includes(S.analysis.level)) S.analysis.level = "Mid";
     S.level = S.analysis.level;
+    S.company = typeof S.analysis.company === "string" ? S.analysis.company.slice(0, 80) : "";
+    S.role = typeof S.analysis.role_title === "string" ? S.analysis.role_title.slice(0, 80) : "";
     // Only an explicit false stops here, so a backend that predates the
     // is_tech_role field still goes straight through.
     if (S.analysis.is_tech_role === false) return showNonTech();
@@ -320,7 +339,16 @@ $("btn-nontech-anyway").onclick = () => {
 };
 
 /* ---------------- analysis screen ---------------- */
+// Company and role for the question bank. Typing only updates state, so the
+// fields are not redrawn under the cursor.
+["company", "role"].forEach(k => $("a-" + k).addEventListener("input", e => {
+  S[k] = e.target.value.slice(0, 80);
+  save();
+}));
+
 function renderAnalysis() {
+  $("a-company").value = S.company || "";
+  $("a-role").value = S.role || "";
   $("a-round").textContent = (S.nonTech ? S.roundType : S.analysis.round_type) + " round";
   $("a-override-wrap").classList.toggle("hidden", !!S.nonTech);
   $("a-reason").textContent = S.analysis.reasoning || "";
@@ -449,7 +477,12 @@ $("btn-generate").addEventListener("click", async () => {
         speech: S.speech,
         // This session's questions first, then earlier sessions', within the
         // backend's cap of 60.
-        avoid: S.questions.map(q => q.question).concat(seen).slice(0, 60)
+        avoid: S.questions.map(q => q.question).concat(seen).slice(0, 60),
+        // For the question bank: real reports for this company and role,
+        // skipping the ones earlier batches already used.
+        company: (S.company || "").trim(),
+        role: (S.role || "").trim(),
+        bankUsed: S.questions.filter(q => q.bank).map(q => q.bank.id)
       });
       const clean = (Array.isArray(batch) ? batch : []).filter(validQ).slice(0, want).map(placeCorrectAnswer);
       if (!clean.length) throw new Error("Batch " + (i + 1) + " came back empty.");
@@ -558,6 +591,20 @@ const lowerHp = (hp, n) => (hp - n < 1e-6 ? 0 : hp - n);
 function hitBoss(n) { S.bossHp = lowerHp(S.bossHp, n); }
 function hitYou(n)  { S.youHp  = lowerHp(S.youHp, n); }
 
+// Questions based on a real report in the question bank say so, and link the
+// report when there is a link. Prepwise's own generated questions are never
+// passed to the prompt as reports, so this label is only on real ones.
+const BANK_SOURCES = { search: "web", reddit: "Reddit", apify_linkedin: "LinkedIn", apify_glassdoor: "Glassdoor" };
+
+function renderBankTag(bank) {
+  const tag = $("q-bank");
+  if (!bank) { tag.classList.add("hidden"); tag.removeAttribute("href"); return; }
+  const where = BANK_SOURCES[bank.source];
+  tag.textContent = (bank.company ? "Reported at " + bank.company : "Real interview report") + (where ? " · " + where : "");
+  if (/^https?:\/\//.test(bank.url || "")) tag.href = bank.url; else tag.removeAttribute("href");
+  tag.classList.remove("hidden");
+}
+
 // With restoring set, redraws the current question from saved state after a
 // reload, including an answer already given, instead of starting it fresh.
 function renderQuestion(restoring) {
@@ -572,6 +619,7 @@ function renderQuestion(restoring) {
              : S.youHp <= 0 ? " · You are out of HP, finish the round" : "";
   $("q-progress").textContent = "Question " + (S.idx + 1) + " of " + S.questions.length + down;
   $("q-cat").textContent = q.category || S.roundType;
+  renderBankTag(q.bank);
   $("q-text").innerHTML = fmt(q.question);
   $("q-feedback").classList.add("hidden");
   $("q-feedback").innerHTML = "";
@@ -1003,7 +1051,7 @@ const SAVE_KEY = "prepwise.session";
 const BUILD = (() => {
   try { return new URL(document.currentScript.src).searchParams.get("v") || ""; } catch (e) { return ""; }
 })();
-const SAVED_FIELDS = ["jd", "analysis", "nonTech", "roundType", "level", "count", "speech", "questions", "idx",
+const SAVED_FIELDS = ["jd", "analysis", "nonTech", "roundType", "level", "count", "speech", "company", "role", "questions", "idx",
   "youHp", "bossHp", "results", "answered", "picked", "redosLeft", "revealed", "scored", "lastPanel", "debrief"];
 let restored = false;
 

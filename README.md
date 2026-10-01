@@ -17,6 +17,7 @@ Paste in a job description and Prepwise works out whether the round leans DSA, s
 3. **Answering**: multiple choice is scored instantly in the browser. Spoken answers use the Web Speech API, with a typed fallback where the browser does not support it.
 4. **Grading**: spoken transcripts go to Gemini for a 0 to 100 score plus written feedback.
 5. **Debrief**: a per-category breakdown plus an AI-written summary of readiness, strengths, focus areas, and a tip.
+6. **Question bank (RAG)**: name the company and role you are interviewing for, and each batch retrieves the closest questions candidates have reported (stored with embeddings in Supabase pgvector, collected weekly by a Make.com scenario) and bases one or two questions on them, tagged with where they were reported.
 
 ## Stack
 
@@ -26,6 +27,7 @@ Paste in a job description and Prepwise works out whether the round leans DSA, s
 | Voice | Web Speech API |
 | Frontend | Lovable |
 | Data | Supabase |
+| Automation | Make.com |
 | API testing | Postman |
 
 ## Where this goes next
@@ -74,7 +76,7 @@ index.html     page markup
 styles.css     all styles
 app.js         all app logic: AI calls, battle, speech input, debrief
 config.js      Supabase URL and publishable key (gitignored, copy from config.example.js)
-supabase/      Edge Function that holds the Gemini key, and the database schema
+supabase/      Edge Functions (gemini: the AI calls; bank: question collection) and the database schema
 postman/       collection that tests the live backend
 tools/         builds the minified app.js that gets deployed, into dist/
 docs/          prompts, setup guides, learnings, post drafts

@@ -393,6 +393,55 @@
           }
         }
       ]
+    },
+    {
+      "name": "5. Bank: refuses writes without the secret",
+      "request": {
+        "description": "Sends the publishable key but no x-bank-secret to the bank function. Must be refused by the function itself before any Gemini call, so it costs no quota. Proves the page key alone cannot write to the question bank.",
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{publishableKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/functions/v1/bank",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "functions",
+            "v1",
+            "bank"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"ingest\",\n  \"items\": [\n    {\n      \"text\": \"This request is refused before it is read, so this text never matters.\",\n      \"url\": \"https://example.com\",\n      \"source\": \"reddit\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Refused by the function (401)\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Says the secret is missing\", () => pm.expect(pm.response.json().error.message).to.include(\"x-bank-secret\"));"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

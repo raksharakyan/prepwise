@@ -90,6 +90,10 @@ code {
 
 .qmeta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
 .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; }
+.qtags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pill.bank { color: var(--accent); border-color: var(--accent); text-decoration: none; }
+a.pill.bank[href]:hover { background: rgba(124,92,255,.16); }
+.company-row input { flex: 1 1 220px; width: auto; }
 .qtext { font-size: 18px; font-weight: 600; margin-bottom: 18px; }
 .opt {
   display: block; width: 100%; text-align: left; background: var(--panel-2);

@@ -163,6 +163,56 @@ commentary:
 "strengths": array of short strings, "focus_areas": array of 0 to 3 short strings, "tip": one concrete thing to do before the next session}
 ```
 
+## 5. Question bank (RAG)
+
+Setup and the collection pipeline are in `docs/question-bank-setup.md`. Three prompt pieces:
+
+**Batch generation, bank block.** When the page sends a company or role, the gemini function
+embeds `company | role | topics | difficulty` with `gemini-embedding-001` (768 dimensions,
+`RETRIEVAL_QUERY`), calls `match_bank_questions` (a row from the same company gets a 0.15
+head start in distance; AI generated rows are excluded), keeps up to 6 reports with similarity
+of at least 0.6 that earlier batches have not used, and inserts this after the already asked
+block:
+
+```
+Real interview questions that candidates have reported, with the company in brackets where known:
+1. [Stripe] {REPORT}
+2. {REPORT}
+
+Base 1 or 2 of your {COUNT} questions on these reports, rewritten in your own words to fit this
+batch's difficulty and the format below, and set "from_bank" on each of those to the number of
+the report it is based on. Never copy a report word for word.
+```
+
+The element schema gains `, "from_bank": the number of the report this question is based on,
+or 0`. With no reports the prompt is byte identical to prompt 2. The function adds a
+`prepwise_bank` list (number, id, company, source, link) to the reply, and the page swaps each
+`from_bank` for that report so the question can show where it was reported.
+
+**Extraction** (bank function, `ingest`, up to 20 posts per call, separate Gemini key):
+
+```
+Below are posts where people describe job interviews. Extract the technical interview questions
+each post says the candidate was actually asked. Only take questions a post really reports; skip
+posts with none, and never invent or generalise questions. Rewrite each one as a standalone
+question in plain words. Leave out names, usernames, emails, phone numbers, links and anything
+else that identifies a person. Write code and commands as plain text, no markdown.
+
+POST 1 (company: {COMPANY}):
+{TEXT}
+...
+Return ONLY a raw JSON array ... {"post", "question", "topic", "level"}
+```
+
+After the model, a regex pass removes anything still shaped like an email, link, handle or phone
+number, and leading numbering such as "1. Q:".
+
+**Harvest** (bank function, `harvest`, Google Search grounding on, JSON mode off since the two
+are not combined): asks for up to 15 questions candidates publicly reported for the role at the
+company, same no invention and no personal details rules. Each question's link comes from the
+reply's `groundingSupports` and `groundingChunks`, never from text the model wrote; a question no
+support covers is stored without a link.
+
 
 ## Model and request notes
 
