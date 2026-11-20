@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prepwise: AI prep for technical interview rounds</title>
+<meta name="description" content="Paste a job description and Prepwise builds an adaptive question set, grades your spoken answers, and closes with a debrief. Project showcase.">
+<style>
+:root {
+  --bg: #0b0d17; --panel: #141829; --panel-2: #1c2138; --line: #2a3050;
+  --text: #e8eaf6; --muted: #8f97bd; --accent: #7c5cff; --accent-2: #00d4b8;
+  --danger: #ff4d6d; --ok: #35d07f;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 Manrope, ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent-2); }
+.wrap { max-width: 920px; margin: 0 auto; padding: 0 20px; }
+nav { position: sticky; top: 0; z-index: 5; background: rgba(11,13,23,.88); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+nav .wrap { display: flex; gap: 20px; align-items: center; height: 54px; overflow-x: auto; white-space: nowrap; }
+nav b { letter-spacing: -.3px; margin-right: auto; }
+nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+nav a:hover { color: var(--text); }
+header.hero { padding: 72px 0 48px; }
+.eyebrow { font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent-2); font-weight: 700; }
+h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.08; letter-spacing: -1.2px; margin: 14px 0 16px; }
+h1 span { background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lead { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 0 28px; }
+.btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 12px 20px; border-radius: 10px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
+.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+.notice { margin-top: 28px; padding: 14px 16px; border: 1px solid var(--line); border-left: 3px solid #ffb020; border-radius: 10px; background: var(--panel); color: var(--muted); font-size: 14px; }
+.notice b { color: var(--text); }
+section { padding: 56px 0; border-top: 1px solid var(--line); }
+h2 { font-size: 30px; letter-spacing: -.6px; margin: 0 0 8px; }
+.sub { color: var(--muted); margin: 0 0 28px; max-width: 640px; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.num { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(124,92,255,.2); color: var(--accent); font-weight: 800; font-size: 14px; margin-bottom: 10px; }
+.shots { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+figure { margin: 0; }
+figure img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--line); }
+figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+@media (max-width: 480px) { .shots { grid-template-columns: 1fr; } }
+/* demo */
+.demo { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+.hp { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.hp small { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+.bar { height: 12px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 100%; transition: width .5s; }
+.bar.you i { background: var(--ok); }
+.bar.boss i { background: var(--danger); }
+.qmeta { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+.pill { border: 1px solid var(--line); border-radius: 99px; padding: 2px 12px; }
+.q { font-size: 19px; font-weight: 700; margin: 0 0 16px; }
+.opt { display: block; width: 100%; text-align: left; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font: inherit; cursor: pointer; }
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt:disabled { cursor: default; }
+.opt.right { border-color: var(--ok); background: rgba(53,208,127,.1); }
+.opt.wrong { border-color: var(--danger); background: rgba(255,77,109,.1); }
+.fb { border-left: 3px solid var(--accent); background: var(--panel-2); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 6px 0 14px; font-size: 15px; }
+.fb p { margin: 4px 0; color: var(--muted); }
+.fb b { color: var(--text); }
+button.next { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 11px 20px; font: inherit; font-weight: 700; cursor: pointer; }
+.final h3 { margin: 0 0 6px; font-size: 22px; }
+.final p { color: var(--muted); margin: 0 0 14px; }
+ul.clean { padding-left: 18px; color: var(--muted); }
+ul.clean li { margin-bottom: 8px; }
+ul.clean b { color: var(--text); }
+.stack { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.stack div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.stack b { display: block; }
+.stack span { color: var(--muted); font-size: 14px; }
+pre { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; overflow-x: auto; font-size: 13px; line-height: 1.6; color: var(--muted); }
+footer { border-top: 1px solid var(--line); padding: 32px 0 56px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <b>Prepwise</b>
+  <a href="#demo">Try it</a><a href="#how">How it works</a><a href="#screens">Screens</a><a href="#build">Build</a><a href="#learned">Lessons</a><a href="#next">Next</a>
+</div></nav>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Capstone project · Generative AI for Professionals</div>
+  <h1>Your one-stop AI prep for <span>technical interview rounds</span></h1>
+  <p class="lead">Paste a job description. Prepwise works out whether the round leans DSA, system design, or both, builds a question set for that role, grades the answers you speak out loud, and closes with a debrief.</p>
+  <div class="btns">
+    <a class="btn" href="#demo">Play the demo round</a>
+    <a class="btn ghost" href="https://github.com/raksharakyan/prepwise">Source on GitHub</a>
+  </div>
+  <div class="notice"><b>About the live app.</b> Prepwise runs on a Supabase backend and a Replit static site, and both free tiers pause when idle. If the live app does not respond, this page is the full walkthrough, and the demo below runs entirely in your browser with no backend.</div>
+</header>
+</div>
+
+<div class="wrap"><section id="demo" style="border-top:0">
+  <h2>Try a round</h2>
+  <p class="sub">A three question sample with the real battle mechanics: correct answers damage The Interviewer, wrong answers damage you and explain why. The questions here are canned. The live app generates them from your job description.</p>
+  <div class="demo" id="demo-box" aria-live="polite"></div>
+</section></div>
+
+<div class="wrap"><section id="how">
+  <h2>How it works</h2>
+  <p class="sub">Six steps from a pasted job description to a debrief.</p>
+  <div class="grid">
+    <div class="card"><span class="num">1</span><h3>Analyse the job description</h3><p>Gemini picks the round type (Technical/DSA, System Design or Mixed), the level (Entry, Mid, Senior) and the key topics. You can override any of it. Non tech roles get a friendly note instead of a wrong track.</p></div>
+    <div class="card"><span class="num">2</span><h3>Generate adaptive questions</h3><p>20 or 30 questions (or a 5 question demo) in batches of five, climbing a difficulty ladder for the detected level. Each is multiple choice or answered by voice.</p></div>
+    <div class="card"><span class="num">3</span><h3>Ground them in real reports</h3><p>Name a company and role, and each batch retrieves the closest reported interview questions from a pgvector question bank and bases one or two questions on them, with a source tag.</p></div>
+    <div class="card"><span class="num">4</span><h3>Answer and get graded</h3><p>Multiple choice scores instantly and explains each wrong option. Spoken answers use the browser's speech recognition, then Gemini scores them 0 to 100 with written feedback. Redo up to twice as practice.</p></div>
+    <div class="card"><span class="num">5</span><h3>Battle The Interviewer</h3><p>HP bars for you and the boss, category tags, live progress, and a critical hit for a strong spoken answer. A knockout does not end the round, so every question still gets asked.</p></div>
+    <div class="card"><span class="num">6</span><h3>Read the debrief</h3><p>Readiness summary, a per category breakdown, strengths, focus areas limited to categories you actually scored low in, and one tip for next time.</p></div>
+  </div>
+</section></div>
+
+<div class="wrap"><section id="screens">
+  <h2>Screens</h2>
+  <p class="sub">Captured from the running app against the live Gemini backend.</p>
+  <div class="shots">
+    <figure><img src="site-img/setup.jpg" alt="Setup screen where a job description is pasted" loading="lazy"><figcaption>Setup: paste, upload a .txt, or pick an example job description.</figcaption></figure>
+    <figure><img src="site-img/analysis.jpg" alt="Analysis screen showing detected round type, level and topics" loading="lazy"><figcaption>Analysis: detected round, level and topics, all overridable.</figcaption></figure>
+    <figure><img src="site-img/battle.jpg" alt="Battle screen after a wrong answer, with an explanation" loading="lazy"><figcaption>Battle: a wrong answer explains why it was wrong, then why the right one is right.</figcaption></figure>
+    <figure><img src="site-img/debrief.jpg" alt="Debrief screen with category breakdown" loading="lazy"><figcaption>Debrief: readiness, category bars, strengths, focus areas, tip.</figcaption></figure>
+  </div>
+</section></div>
+
+<div class="wrap"><section id="build">
+  <h2>How it is built</h2>
+  <p class="sub">Plain HTML, CSS and JavaScript on the front, one Supabase Edge Function behind it. No build step to run it.</p>
+  <pre>Browser (index.html, styles.css, app.js)
+   |  { task, input }   task = analyze | questions | grade | debrief
+   v
+Supabase Edge Function "gemini"        &lt;- holds GEMINI_API_KEY and all four prompts
+   |-- embeds the request, calls match_bank_questions (pgvector)
+   v
+Google Gemini API  -&gt;  strict JSON  -&gt;  parsed and rendered in the browser
+
+Make.com (weekly)  -&gt;  "bank" Edge Function  -&gt;  bank_questions table</pre>
+  <div class="stack" style="margin-top:20px">
+    <div><b>Gemini API</b><span>Analysis, questions, grading, debrief</span></div>
+    <div><b>Web Speech API</b><span>Voice answers, typed fallback</span></div>
+    <div><b>Supabase</b><span>Edge Functions, pgvector, schema with RLS</span></div>
+    <div><b>Make.com</b><span>Weekly question bank collection</span></div>
+    <div><b>Replit</b><span>Static hosting, minified build</span></div>
+    <div><b>Postman</b><span>Security and chained API tests</span></div>
+  </div>
+  <ul class="clean" style="margin-top:24px">
+    <li><b>The key never reaches the browser.</b> The prompts and the Gemini key live in the Edge Function, which only runs four fixed tasks with fixed token budgets.</li>
+    <li><b>Round state survives a reload.</b> Screen, question, HP, answers and the debrief are saved to sessionStorage and restored.</li>
+    <li><b>Tested against the live backend.</b> A Postman collection checks that unauthenticated calls are refused, then runs the four AI calls chained as the app does.</li>
+  </ul>
+</section></div>
+
+<div class="wrap"><section id="learned">
+  <h2>What went wrong, and what it taught me</h2>
+  <p class="sub">The most useful lessons came from bugs that did not crash anything.</p>
+  <div class="grid">
+    <div class="card"><h3>Thinking tokens ate the reply</h3><p>Gemini 3 models count reasoning against the output limit. A small budget came back empty with no error. Fix: turn thinking off for structured output.</p></div>
+    <div class="card"><h3>A silent downgrade</h3><p>One transient 503 shrank a 20 question session to 5 and looked fine. Fix: retry with backoff, and tell the user when a set comes up short.</p></div>
+    <div class="card"><h3>Reading is not looking</h3><p>The debrief bars never rendered, but every text check passed. Only a screenshot caught it.</p></div>
+    <div class="card"><h3>Reliable JSON</h3><p>Ask for raw JSON, set the response type, strip stray fences, and fall back to extracting the outer block when parsing fails.</p></div>
+  </div>
+  <p class="sub" style="margin-top:20px">The full notes are in <a href="https://github.com/raksharakyan/prepwise/blob/main/docs/learnings.md">docs/learnings.md</a>, and every prompt is in <a href="https://github.com/raksharakyan/prepwise/blob/main/docs/ai-prompts.md">docs/ai-prompts.md</a>.</p>
+</section></div>
+
+<div class="wrap"><section id="next">
+  <h2>Where this goes next</h2>
+  <ul class="clean">
+    <li><b>Session history.</b> The schema and row level security are deployed. The app does not write to them yet.</li>
+    <li><b>Adaptive follow-up sessions.</b> Use the debrief's weak categories to build the next set against those gaps only, harder as they improve.</li>
+    <li><b>Sign in</b> to lock the Gemini function to real users.</li>
+    <li><b>PDF job descriptions</b> and, later, behavioral rounds.</li>
+  </ul>
+</section></div>
+
+<footer><div class="wrap">Raksha Rakyan 🎀 · Built for the IIT Patna Generative AI for Professionals capstone sprint · <a href="https://github.com/raksharakyan/prepwise">GitHub</a></div></footer>
+
+<script>
+(function () {
+  var QS = [
+    { cat: "Forms and events", q: "Which HTML element should wrap a set of inputs that the user fills in and submits together?",
+      o: ["A div with a click handler on the button", "A form element containing the inputs and a submit button", "A section with the required attribute on each input", "A fieldset placed directly inside the body"], a: 1,
+      n: ["A div has no built in submit behaviour, so Enter and validation will not work without extra code.", "A form groups inputs so they submit together and gives you Enter to submit and built in validation.", "required works on inputs, but a section does not submit anything.", "A fieldset only groups controls visually and does not submit them."] },
+    { cat: "Data structures", q: "You need to check whether an item was already seen, in constant average time. Which structure fits?",
+      o: ["A sorted array with binary search", "A linked list", "A hash set", "A stack"], a: 2,
+      n: ["Binary search is O(log n) and keeping the array sorted costs more on insert.", "Searching a linked list is O(n).", "A hash set gives O(1) average inserts and lookups.", "A stack only exposes its top item, so it cannot answer membership."] },
+    { cat: "System design", q: "Reads on your service are 100 times the writes and the data rarely changes. What is the first scaling move?",
+      o: ["Shard the primary database by user id", "Add a cache in front of the database", "Move everything to a message queue", "Rewrite the service in a faster language"], a: 1,
+      n: ["Sharding adds heavy complexity and mostly helps write scale.", "A cache absorbs repeated reads cheaply, which is exactly this workload.", "A queue helps decouple writes, not speed up reads.", "Language speed is rarely the bottleneck for a read heavy, rarely changing workload."] }
+  ];
+  var box = document.getElementById("demo-box"), i, you, boss, step = 100 / QS.length;
+  function start() { i = 0; you = 100; boss = 100; render(); }
+  function hp() {
+    return '<div class="hp"><div><small><span>You</span><span>' + Math.round(you) + '</span></small><div class="bar you"><i style="width:' + you + '%"></i></div></div>' +
+      '<div><small><span>The Interviewer</span><span>' + Math.round(boss) + '</span></small><div class="bar boss"><i style="width:' + boss + '%"></i></div></div></div>';
+  }
+  function render() {
+    if (i >= QS.length) {
+      var won = boss <= you;
+      box.innerHTML = hp() + '<div class="final"><h3>' + (won ? "The Interviewer is down" : "The Interviewer wins this round") + '</h3><p>' +
+        (won ? "Nice. In the real app a debrief now breaks this down by category." : "Close. The real app would now point you at the categories to work on.") + '</p><button class="next" id="again">Play again</button></div>';
+      document.getElementById("again").onclick = start; return;
+    }
+    var q = QS[i];
+    box.innerHTML = hp() + '<div class="qmeta"><span>Question ' + (i + 1) + ' of ' + QS.length + '</span><span class="pill">' + q.cat + '</span></div><p class="q">' + q.q + '</p>' +
+      q.o.map(function (t, k) { return '<button class="opt" data-k="' + k + '">' + t + '</button>'; }).join("") + '<div id="fb"></div>';
+    box.querySelectorAll(".opt").forEach(function (b) { b.onclick = function () { pick(+b.dataset.k); }; });
+  }
+  function pick(k) {
+    var q = QS[i], ok = k === q.a;
+    if (ok) boss = Math.max(0, boss - step); else you = Math.max(0, you - step);
+    box.querySelectorAll(".opt").forEach(function (b, j) {
+      b.disabled = true;
+      if (j === q.a) b.classList.add("right"); else if (j === k) b.classList.add("wrong");
+    });
+    box.querySelector(".hp").outerHTML = hp();
+    document.getElementById("fb").innerHTML = '<div class="fb"><b>' + (ok ? "Hit! The Interviewer takes damage" : "You take damage") + '</b>' +
+      (ok ? "" : "<p><b>Why yours is wrong:</b> " + q.n[k] + "</p>") + "<p><b>The right answer:</b> " + q.n[q.a] + '</p></div><button class="next" id="nx">' + (i === QS.length - 1 ? "See result" : "Next question") + "</button>";
+    document.getElementById("nx").onclick = function () { i++; render(); };
+  }
+  start();
+})();
+</script>
+</body>
+</html>

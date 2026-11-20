@@ -62,7 +62,7 @@ Each entry has what it is, why it matters, and anything it depends on. Once a fe
 - **Depends on:** Nothing. Both fields are optional, and nothing is stored without sign in (#4).
 
 ## 8. Company specific questions from real interview reports
-**Status:** 💡 Idea · **Added:** 2026-09-25
+**Status:** ✅ Built 2026-10-02 as the question bank: Supabase pgvector, RAG in each batch, collected by Make.com from Google Search grounding, the Reddit API, Prepwise's own sessions, and an optional Apify route that is off by default. See `docs/question-bank-setup.md`. · **Added:** 2026-09-25
 
 - **What:** Ask which company the user is interviewing with. Pull interview questions that past candidates reported for that company and role through an Apify connector (sources like Glassdoor and LinkedIn), and mix them into the question set.
 - **Why:** Real questions from a company's own loop are the most targeted prep possible.

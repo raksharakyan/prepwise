@@ -26,8 +26,10 @@ body {
 .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
 h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.4px; }
 h2 { font-size: 20px; margin: 0 0 12px; }
-/* Syne for headings and the brand, Manrope for everything else */
-h1, h2, h3, .brand-name, .hp-name, .hp-num, .tag { font-family: var(--font-head); }
+/* Syne only for text set in capitals: its g, y and p have stub tails that
+   look cut off in lowercase words such as "damage". Manrope for the rest. */
+.brand-name, .hp-name, .tag { font-family: var(--font-head); }
+h1, h2, h3 { font-weight: 700; }
 .tag {
   display: inline-block; font-size: 11px; letter-spacing: 1.4px;
   text-transform: uppercase; color: var(--accent-2); margin-bottom: 18px;
@@ -67,6 +69,13 @@ button.ghost.on { border-color: var(--accent); background: rgba(124,92,255,.16);
 .nontech h3 { margin: 0 0 8px; font-size: 16px; }
 .nontech p { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
 .nontech .row { margin-top: 14px; }
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .92em;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px;
+}
+.fb-body p { margin: 0 0 8px; }
+.fb-body p:last-child { margin-bottom: 0; }
+.fb-body strong { color: var(--text); font-weight: 600; }
 .err { color: var(--danger); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
 
 /* battle */
@@ -81,6 +90,10 @@ button.ghost.on { border-color: var(--accent); background: rgba(124,92,255,.16);
 
 .qmeta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
 .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; }
+.qtags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pill.bank { color: var(--accent); border-color: var(--accent); text-decoration: none; }
+a.pill.bank[href]:hover { background: rgba(124,92,255,.16); }
+.company-row input { flex: 1 1 220px; width: auto; }
 .qtext { font-size: 18px; font-weight: 600; margin-bottom: 18px; }
 .opt {
   display: block; width: 100%; text-align: left; background: var(--panel-2);

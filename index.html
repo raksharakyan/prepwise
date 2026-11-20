@@ -76,6 +76,13 @@
       <div class="row" id="a-speech"></div>
       <p class="muted" id="speech-note" style="margin:8px 0 0"></p>
 
+      <label for="a-company" style="margin-top:22px">Interviewing at a specific company? (optional)</label>
+      <div class="row company-row">
+        <input type="text" id="a-company" maxlength="80" placeholder="Company, for example Google" autocomplete="organization">
+        <input type="text" id="a-role" maxlength="80" placeholder="Role, for example Software Engineer" aria-label="Role">
+      </div>
+      <p class="muted" style="margin:8px 0 0">When Prepwise has questions candidates reported for this company and role, it mixes them in and tags them.</p>
+
       <div class="row" style="margin-top:24px">
         <button id="btn-generate">Build my question set</button>
         <button class="ghost" id="btn-back">Back</button>
@@ -114,7 +121,10 @@
     <div class="card">
       <div class="qmeta">
         <span id="q-progress"></span>
-        <span class="pill" id="q-cat"></span>
+        <span class="qtags">
+          <a class="pill bank hidden" id="q-bank" target="_blank" rel="noopener noreferrer"></a>
+          <span class="pill" id="q-cat"></span>
+        </span>
       </div>
       <div class="qtext" id="q-text"></div>
 

@@ -21,6 +21,7 @@ is not in this collection and never needs to be. It lives only as a Supabase sec
 | 2. Question batch generation | Exactly 5 questions, exactly one spoken, every multiple choice question has 4 options and a valid answer, and no "All of the above" style options. |
 | 3. Spoken answer grading | The score is a whole number from 0 to 100 and feedback is present. |
 | 4. Session debrief | All four fields are present, 2 to 3 strengths and focus areas, and no em dashes. |
+| 5. Bank: refuses writes without the secret | The question bank function refuses a write that carries only the page's publishable key. Free. |
 
 Every AI request also checks the reply parses as JSON after stripping stray code fences,
 which is the same parsing the app does.

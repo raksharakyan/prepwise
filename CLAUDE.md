@@ -29,10 +29,12 @@ Currently scoped to technical interview rounds only (DSA and system design). Beh
 - [x] Batched adaptive question generation (20 or 30 total questions, or 5 as a quick demo), scaling up in difficulty across batches. The 5 question demo is a single batch, about 4 Gemini requests end to end instead of about 10, and always includes one spoken question
 - [x] Two question types: multiple-choice (instant client-side scoring) and speech-answered (via browser voice input, with a manual typed fallback for unsupported browsers)
 - [x] AI grading of spoken answers (0 to 100 score plus written feedback)
+- [x] A wrong multiple choice answer is explained: the question prompt returns `option_notes`, one short note per option, so the feedback says why the pick was wrong before why the right answer is right. The prompt also requires exactly one correct option, and the page renders any stray markdown from the model (code in backticks, bold) instead of showing it raw
 - [x] Redo and Show Correct Answer on spoken questions: the first attempt is the scored one and alone moves HP and the debrief; up to two redos are graded as practice only; the reference answer can be revealed any time and is revealed automatically once the last redo is graded
 - [x] Boss-battle style UI: HP bars, category tags per question, live progress
 - [x] A reload does not lose the round: the session (screen, question, HP, answers, a half typed answer, and the written debrief) is saved to the tab's sessionStorage and restored on load. A reload mid generation goes back to the analysis screen with the choices kept
 - [x] AI-generated debrief screen with category breakdown and strengths/focus areas/tip
+- [x] Question bank with RAG: optional Company and Role fields on the analysis screen (prefilled from the JD); each batch embeds the request, retrieves up to 6 close reports from `bank_questions` (Supabase pgvector, `match_bank_questions`, same company boosted, AI generated rows excluded), and bases 1 or 2 questions on them with a "Reported at X · Source" tag linking the report. A Make.com scenario fills the bank weekly through the `bank` Edge Function (Google Search grounding, Reddit's official API, and an Apify route for LinkedIn and Glassdoor that is off by default because both forbid scraping); generated batches are stored as source `prepwise`. Setup in `docs/question-bank-setup.md`
 - [x] Swap AI provider from Claude API (only free inside Claude.ai artifacts) to Google AI Studio's Gemini API using a real free-tier API key, so the app works once deployed outside Claude.ai
 - [ ] PDF parsing for JD uploads (currently only .txt/paste is supported)
 - [x] Supabase Edge Function holding the Gemini key server side, so the app can be deployed without exposing it
@@ -90,7 +92,7 @@ written from Replit's Shell with a base64 paste, checked with `md5sum`, then rep
 Prompt patterns in use, reproduced in full in `docs/ai-prompts.md`:
 
 - **JD analysis prompt**: returns strict JSON `{round_type, level, reasoning, topics}` given the JD text, where level is Entry, Mid or Senior and sets how hard the questions get
-- **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
+- **Batch question generation prompt**: given round type, focus topics, batch index/total, and a difficulty hint, returns a strict JSON array of question objects `{question, type: "mcq"|"speech", options, correct_index, explanation, option_notes, category}`. Exactly one item per batch is `type: "speech"` when speech mode is enabled.
 - **Speech grading prompt**: given the question, the ideal answer/key points (from `explanation`), and the candidate's transcript, returns strict JSON `{score, feedback}`
 - **Debrief prompt**: given a compact summary string of per-question category/type/correct-or-score, plus the weak categories (under 70 percent) computed by the app, returns strict JSON `{overall_readiness, strengths, focus_areas, tip}`. Focus areas may only name weak categories; with none, the section is hidden and the tip suggests the next level up
 
@@ -104,6 +106,7 @@ All prompts request "ONLY a raw JSON object/array, no markdown fences, no commen
 | Voice Input | Browser-native Web Speech API | Speech-to-text for spoken answers, with a manual typed fallback |
 | Frontend | Replit (Lovable was intended, access never arrived) | Hosting the working HTML/JS prototype as a public web app |
 | Backend / Data | Supabase | Storing session history, quiz results, and progress over time |
+| Automation | Make.com (free plan) | Weekly scenario that collects reported interview questions into the question bank |
 | Testing | Postman | Collection in `postman/` that tests the live backend: a free security check that unauthenticated calls are refused, then the four AI calls chained the way the app runs them, each with structural assertions |
 
 ## 4-Week Sprint Timeline
