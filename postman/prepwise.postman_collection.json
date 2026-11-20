@@ -8,11 +8,11 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "https://hvseavmnyhwybklmqvvc.supabase.co"
+      "value": "https://YOUR-PROJECT-REF.supabase.co"
     },
     {
       "key": "publishableKey",
-      "value": "sb_publishable_xV80XXUPcg7_ryvrlJEDkw_q2j9SDxb",
+      "value": "YOUR_SUPABASE_PUBLISHABLE_KEY",
       "description": "Supabase publishable key. Public by design. The Gemini key is NOT here, it is a server side secret."
     },
     {
